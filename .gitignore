@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+venv/
+env/
+
+# Data files (zu groß für Git)
+data/raw/*.csv
+results/*.csv
+logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE  
+.vscode/
+.cursor/

@@ -1,0 +1,15 @@
+experiment:
+  random_seed: 42
+  total_tickets: 200
+  
+models:
+  - "llama3.1:8b"
+  - "mistral:7b"
+
+few_shot_counts: [0, 1, 3, 5]
+prompt_types: ["structured", "unstructured"]
+
+llm_params:
+  temperature: 0.1
+  top_p: 0.9
+  max_tokens: 50
