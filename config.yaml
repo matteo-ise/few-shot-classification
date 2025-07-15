@@ -30,24 +30,28 @@ categories:
 paths:
   data_dir: "data/"
   results_dir: "results/"
+  ticket_file: "tickets_simple_10.xlsx"      # Hier kannst du z.B. tickets_200.xlsx eintragen
+  fewshot_file: "tickets_examples.xlsx"
+paths:
+  data_dir: "data/"
+  results_dir: "results/"
   logs_dir: "logs/"
   
 # Prompt-Templates
 prompts:
   structured_template: |
-    Klassifiziere das folgende IT-Support-Ticket in eine der vier Kategorien:
-    - Hardware: Probleme mit physischen Geräten (Laptop, Drucker, Monitor, etc.)
-    - Software: Probleme mit Anwendungen (Excel, VPN, Email, etc.)
-    - Network: Probleme mit Netzwerkverbindungen (Internet, WLAN, Server, etc.)
-    - Security: Sicherheitsprobleme (verdächtige Emails, Passwort, Malware, etc.)
+    Sie sind ein IT-Support-Experte. Ihre Aufgabe ist es, das folgende Ticket einer der untenstehenden Kategorien zuzuordnen.
+    Kategorien:
+    - Hardware: Probleme mit Geräten (z.B. Laptop, Drucker, Monitor)
+    - Software: Probleme mit Programmen (z.B. Excel, VPN, Email)
+    - Network: Probleme mit Netzwerk (z.B. Internet, WLAN, Server)
+    - Security: Sicherheitsprobleme (z.B. Phishing, Passwort, Malware)
     
     Ticket: {ticket_text}
     
-    Kategorie:
-    
+    Bitte geben Sie nur die Kategorie an:
+ 
   unstructured_template: |
-    Was für ein IT-Problem ist das?
-    
+    Was für ein IT-Problem ist das? Mögliche Kategorien: Hardware, Software, Network, Security.
     {ticket_text}
-    
     Antwort:
