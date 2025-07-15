@@ -1,0 +1,1 @@
+# (Diese Datei wurde in README.md umbenannt, um die Hauptdokumentation zu sein.) 

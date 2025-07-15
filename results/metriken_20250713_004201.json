@@ -1,0 +1,56 @@
+{
+  "llama3.1:8b": {
+    "gesamt_tickets": 10,
+    "korrekte_vorhersagen": 0,
+    "accuracy": 0.0,
+    "kategorien": {
+      "Account": {
+        "anzahl": 2,
+        "korrekte": 0,
+        "precision": 0.0
+      },
+      "Network": {
+        "anzahl": 4,
+        "korrekte": 0,
+        "precision": 0.0
+      },
+      "Security": {
+        "anzahl": 1,
+        "korrekte": 0,
+        "precision": 0.0
+      },
+      "Software": {
+        "anzahl": 3,
+        "korrekte": 0,
+        "precision": 0.0
+      }
+    }
+  },
+  "mistral:7b": {
+    "gesamt_tickets": 10,
+    "korrekte_vorhersagen": 6,
+    "accuracy": 0.6,
+    "kategorien": {
+      "Account": {
+        "anzahl": 2,
+        "korrekte": 1,
+        "precision": 0.5
+      },
+      "Network": {
+        "anzahl": 4,
+        "korrekte": 4,
+        "precision": 1.0
+      },
+      "Security": {
+        "anzahl": 1,
+        "korrekte": 1,
+        "precision": 1.0
+      },
+      "Software": {
+        "anzahl": 3,
+        "korrekte": 0,
+        "precision": 0.0
+      }
+    }
+  }
+}

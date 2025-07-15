@@ -13,3 +13,41 @@ llm_params:
   temperature: 0.1
   top_p: 0.9
   max_tokens: 50
+
+# Ollama-Verbindung
+ollama:
+  base_url: "http://localhost:11434"
+  timeout: 30
+
+# Kategorien für IT-Support-Tickets
+categories:
+  - "Hardware"
+  - "Software" 
+  - "Network"
+  - "Security"
+
+# Datei-Pfade
+paths:
+  data_dir: "data/"
+  results_dir: "results/"
+  logs_dir: "logs/"
+  
+# Prompt-Templates
+prompts:
+  structured_template: |
+    Klassifiziere das folgende IT-Support-Ticket in eine der vier Kategorien:
+    - Hardware: Probleme mit physischen Geräten (Laptop, Drucker, Monitor, etc.)
+    - Software: Probleme mit Anwendungen (Excel, VPN, Email, etc.)
+    - Network: Probleme mit Netzwerkverbindungen (Internet, WLAN, Server, etc.)
+    - Security: Sicherheitsprobleme (verdächtige Emails, Passwort, Malware, etc.)
+    
+    Ticket: {ticket_text}
+    
+    Kategorie:
+    
+  unstructured_template: |
+    Was für ein IT-Problem ist das?
+    
+    {ticket_text}
+    
+    Antwort:

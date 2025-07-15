@@ -1,0 +1,24 @@
+{
+  "gesamt_tickets": 10,
+  "korrekte_vorhersagen": 8,
+  "accuracy": 0.8,
+  "kategorien": {
+    "Software": {
+      "anzahl": 4,
+      "korrekte": 3,
+      "precision": 0.75
+    },
+    "Network": {
+      "anzahl": 5,
+      "korrekte": 4,
+      "precision": 0.8
+    },
+    "Security": {
+      "anzahl": 1,
+      "korrekte": 1,
+      "precision": 1.0
+    }
+  },
+  "test_id": "20250713_002502",
+  "timestamp": "2025-07-13T00:25:22.355953"
+}
