@@ -31,7 +31,8 @@ paths:
   data_dir: "data/"
   results_dir: "results/"
   # Haupt-Ticketdatei (anpassen je nach Testgröße)
-  ticket_file: "Newtickets_simple_10.xlsx"
+  #ticket_file: "Newtickets_simple_10.xlsx"
+  ticket_file: "tickets_extended_187.xlsx"
   # Few-Shot-Beispiel-Datei (nur noch diese verwenden)
   fewshot_file: "tickets_examples.xlsx"
   

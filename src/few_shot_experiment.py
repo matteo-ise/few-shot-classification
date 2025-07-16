@@ -22,6 +22,54 @@ import os
 import warnings
 warnings.filterwarnings('ignore')
 
+def interactive_menu(config):
+    def choose_from_list(options, label):
+        while True:
+            print(f"\n{label}:")
+            print("  1) Alle")
+            for idx, opt in enumerate(options, start=2):
+                print(f"  {idx}) {opt}")
+            inp = input(f"Auswahl (z.B. 2,3, 1 = alle) [Default: 1]: ").strip()
+            if inp == "" or inp == "1":
+                return options
+            try:
+                nums = [int(x.strip()) for x in inp.split(",")]
+                if any(n < 1 or n > len(options)+1 for n in nums):
+                    raise ValueError
+                if 1 in nums:
+                    return options
+                return [options[n-2] for n in nums]
+            except Exception:
+                print("Ungültige Eingabe. Bitte nur Zahlen wie 2,3 oder 1 für alle eingeben.")
+    # Modelle
+    all_models = config.get('models', [])
+    models = choose_from_list(all_models, "Modelle")
+    # Few-Shot-Counts
+    all_few_shot = config.get('few_shot_counts', [])
+    few_shot_counts = choose_from_list([str(x) for x in all_few_shot], "Few-Shot-Counts")
+    few_shot_counts = [int(x) for x in few_shot_counts]
+    # Prompt-Typen
+    all_prompt_types = config.get('prompt_types', [])
+    prompt_types = choose_from_list(all_prompt_types, "Prompt-Typen")
+    # Anzahl Tickets
+    total_tickets = config.get('experiment', {}).get('total_tickets', 200)
+    while True:
+        print(f"\nMaximale Ticketanzahl: {total_tickets}")
+        ticket_in = input(f"Wie viele Tickets testen? (1 = alle, Default: 5): ").strip()
+        if ticket_in == "" or ticket_in == "1":
+            n_tickets = total_tickets
+            break
+        if ticket_in.isdigit() and int(ticket_in) > 0:
+            n_tickets = min(int(ticket_in), total_tickets)
+            break
+        print("Ungültige Eingabe. Bitte eine Zahl eingeben.")
+    print(f"\nEinstellungen übernommen:")
+    print(f"  Modelle: {', '.join(models)}")
+    print(f"  Few-Shot-Counts: {', '.join(map(str, few_shot_counts))}")
+    print(f"  Prompt-Typen: {', '.join(prompt_types)}")
+    print(f"  Tickets: {n_tickets}")
+    return models, few_shot_counts, prompt_types, n_tickets
+
 class FewShotExperiment:
     """
     Hauptklasse für das Few-Shot Learning Experiment.
@@ -185,10 +233,10 @@ class FewShotExperiment:
             'correct': predicted_category == ground_truth
         }
 
-    def run_experiment(self) -> pd.DataFrame:
+    def run_experiment(self, models=None, few_shot_counts=None, prompt_types=None, n_tickets=None) -> pd.DataFrame:
         """
-        Führt das vollständige Experiment durch:
-        - Alle Modelle, Few-Shot-Counts, Prompt-Typen und Tickets werden getestet.
+        Führt das vollständige Experiment durch (jetzt mit flexiblen Parametern):
+        - Modelle, Few-Shot-Counts, Prompt-Typen und Ticketanzahl können eingeschränkt werden.
         - Ergebnisse werden in einem eigenen Ordner gespeichert.
         """
         print("🚀 Starte Few-Shot Experiment für mehrere Modelle...")
@@ -196,36 +244,28 @@ class FewShotExperiment:
         if len(tickets_df) == 0:
             print("❌ Keine Tickets gefunden!")
             return pd.DataFrame()
-        models = self.config.get('models', ['llama3.1:8b', 'mistral:7b'])
-        few_shot_counts = self.config.get('few_shot_counts', [0, 1, 3, 5])
-        prompt_types = self.config.get('prompt_types', ['structured', 'unstructured'])
-        categories = self.config.get('categories', ['Hardware', 'Software', 'Network', 'Security'])
-        print(f"📊 Experiment-Design:")
-        print(f"   Modelle: {models}")
-        print(f"   Few-Shot-Counts: {few_shot_counts}")
-        print(f"   Prompt-Types: {prompt_types}")
-        print(f"   Kategorien: {categories}")
+        # Übernehme ggf. reduzierte Einstellungen
+        models = models or self.config.get('models', ['llama3.1:8b', 'mistral:7b'])
+        few_shot_counts = few_shot_counts or self.config.get('few_shot_counts', [0, 1, 3, 5])
+        prompt_types = prompt_types or self.config.get('prompt_types', ['structured', 'unstructured'])
+        n_tickets = n_tickets or self.config.get('experiment', {}).get('total_tickets', 200)
+        # Tickets ggf. reduzieren
+        tickets_df = tickets_df.sample(min(n_tickets, len(tickets_df)), random_state=42)
+        categories = self.config.get('categories', [])
         results = []
-        total_experiments = len(models) * len(few_shot_counts) * len(prompt_types) * len(tickets_df)
-        current_experiment = 0
         for model in models:
             for few_shot_count in few_shot_counts:
                 for prompt_type in prompt_types:
+                    print(f"\n--- Modell: {model} | Few-Shot: {few_shot_count} | Prompt: {prompt_type} ---")
                     for _, ticket in tickets_df.iterrows():
-                        current_experiment += 1
-                        print(f"🔬 Experiment {current_experiment}/{total_experiments}: "
-                              f"{model}, {few_shot_count} shots, {prompt_type}")
-                        result = self._classify_ticket(
-                            ticket.to_dict(), model, few_shot_count, 
-                            prompt_type, examples_df, categories
-                        )
+                        result = self._classify_ticket(ticket, model, few_shot_count, prompt_type, examples_df, categories)
                         results.append(result)
-        # Ergebnisse in einem eigenen Ordner nach Test-ID speichern
+        results_df = pd.DataFrame(results)
+        # Ergebnisse speichern
         results_dir = os.path.join(self.config.get('paths', {}).get('results_dir', 'results/'), f"test_{self.test_id}")
         os.makedirs(results_dir, exist_ok=True)
-        results_df = pd.DataFrame(results)
         results_df.to_csv(os.path.join(results_dir, f"results_{self.test_id}.csv"), index=False)
-        print(f"✅ Experiment abgeschlossen! {len(results)} Ergebnisse gespeichert in {results_dir}")
+        print(f"\n💾 Ergebnisse gespeichert unter: {results_dir}")
         return results_df
 
     def analyze_results(self, results_df: pd.DataFrame) -> Dict:
@@ -411,7 +451,9 @@ def main():
     print("🔬 Few-Shot Learning Experiment (Llama3.1 vs. Mistral)")
     print("=" * 50)
     experiment = FewShotExperiment()
-    results_df = experiment.run_experiment()
+    # Interaktives Menü
+    models, few_shot_counts, prompt_types, n_tickets = interactive_menu(experiment.config)
+    results_df = experiment.run_experiment(models=models, few_shot_counts=few_shot_counts, prompt_types=prompt_types, n_tickets=n_tickets)
     if len(results_df) > 0:
         analysis = experiment.analyze_results(results_df)
         experiment.create_visualizations(results_df, analysis)
