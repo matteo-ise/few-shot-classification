@@ -30,12 +30,10 @@ categories:
 paths:
   data_dir: "data/"
   results_dir: "results/"
-  ticket_file: "tickets_simple_10.xlsx"      # Hier kannst du z.B. tickets_200.xlsx eintragen
+  # Haupt-Ticketdatei (anpassen je nach Testgröße)
+  ticket_file: "Newtickets_simple_10.xlsx"
+  # Few-Shot-Beispiel-Datei (nur noch diese verwenden)
   fewshot_file: "tickets_examples.xlsx"
-paths:
-  data_dir: "data/"
-  results_dir: "results/"
-  logs_dir: "logs/"
   
 # Prompt-Templates
 prompts:
@@ -50,7 +48,6 @@ prompts:
     Ticket: {ticket_text}
     
     Bitte geben Sie nur die Kategorie an:
- 
   unstructured_template: |
     Was für ein IT-Problem ist das? Mögliche Kategorien: Hardware, Software, Network, Security.
     {ticket_text}

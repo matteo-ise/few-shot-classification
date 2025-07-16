@@ -1,25 +1,20 @@
-# Bytecode und temporäre Dateien
+# Python
 __pycache__/
 *.pyc
 *.pyo
+.Python
+venv/
+env/
 
-# Log- und Ergebnisdateien
-logs/
-results/
+# Data files (zu groß für Git)
+data/raw/*.csv
+results/*.csv
+logs/*.log
 
-# Datenverzeichnisse und sensible Daten
-# Excel-Dateien (Daten) sollen nicht ins Repo
-*.xlsx
-*.xls
-*.xlsm
-*.xlsb
-
-# Datenordner komplett ignorieren (außer ggf. Beispiel-README)
-data/
-!data/README.md
-
-# Jupyter Notebooks (falls vorhanden)
-*.ipynb
-
-# Sonstiges
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE  
+.vscode/
+.cursor/

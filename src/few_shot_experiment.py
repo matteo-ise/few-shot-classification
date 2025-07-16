@@ -52,7 +52,7 @@ class FewShotExperiment:
         print("📂 Lade Daten...")
         data_dir = self.config.get('paths', {}).get('data_dir', 'data/')
         ticket_file = self.config.get('paths', {}).get('ticket_file', 'tickets_simple_10.xlsx')
-        fewshot_file = self.config.get('paths', {}).get('fewshot_file', 'few_shot_examples.xlsx')
+        fewshot_file = self.config.get('paths', {}).get('fewshot_file', 'tickets_examples.xlsx')
         # Tickets laden
         tickets_path = os.path.join(data_dir, ticket_file)
         tickets_df = pd.read_excel(tickets_path)
@@ -78,13 +78,13 @@ class FewShotExperiment:
                 prompt += f"- {cat}\n"
             prompt += "\n"
             for example in few_shot_examples:
-                prompt += f"Beispiel:\nTicket: {example['ticket_text']}\nKategorie: {example['kategorie']}\n\n"
+                prompt += f"Beispiel:\nTicket: {example['ticket_text']}\nKategorie: {example['label']}\n\n"
             prompt += f"Ticket: {ticket_text}\nKategorie:"
         else:
             # Unstrukturierter Prompt, aber mit klaren Kategorien
             prompt = f"Was für ein IT-Problem ist das? Mögliche Kategorien: {', '.join(categories)}\n\n"
             for example in few_shot_examples:
-                prompt += f"Problem: {example['ticket_text']}\nAntwort: {example['kategorie']}\n\n"
+                prompt += f"Problem: {example['ticket_text']}\nAntwort: {example['label']}\n\n"
             prompt += f"Problem: {ticket_text}\nAntwort:"
         return prompt
 
@@ -132,23 +132,25 @@ class FewShotExperiment:
     def _get_few_shot_examples(self, examples_df: pd.DataFrame, count: int) -> List[Dict]:
         """
         Wählt zufällig Few-Shot-Beispiele aus. Anzahl = count.
+        Passt die Spaltennamen an die neue Struktur an (label statt kategorie).
         """
         if count == 0:
             return []
         selected = examples_df.sample(min(count, len(examples_df)), random_state=42)
-        return selected.to_dict('records')
+        # Passe die Spaltennamen an: 'label' statt 'kategorie'
+        examples = []
+        for _, row in selected.iterrows():
+            examples.append({
+                'ticket_text': row.get('subject', '') + '\n\n' + str(row.get('body', '')),
+                'label': row.get('label', '')
+            })
+        return examples
 
     def _extract_ground_truth(self, ticket: Dict) -> str:
         """
-        Bestimmt die wahre Kategorie (Ground Truth) aus den Ticket-Tags.
+        Bestimmt die wahre Kategorie (Ground Truth) aus der Spalte 'label'.
         """
-        tags = [str(ticket.get(f'tag_{i}', '')).strip() for i in range(1, 9)]
-        categories = self.config.get('categories', ['Hardware', 'Software', 'Network', 'Security'])
-        for cat in categories:
-            for tag in tags:
-                if cat.lower() in tag.lower():
-                    return cat
-        return categories[0]
+        return ticket.get('label', '')
 
     def _classify_ticket(self, ticket: Dict, model: str, few_shot_count: int, prompt_type: str, examples_df: pd.DataFrame, categories: List[str]) -> Dict:
         """
