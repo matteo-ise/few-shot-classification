@@ -1,10 +1,13 @@
+# Test Configuration for Scientific Few-Shot Experiment
+# Optimiert für Demonstration mit kleinerem Dataset
+
 experiment:
   random_seed: 42
-  total_experimental_tickets: 200  # PERFEKT! Genau was wir haben
-  min_tickets_per_category: 50     # PERFEKT! Genau 50 pro Kategorie  
-  min_per_condition: 25            # Optimal: 200/8 Bedingungen = 25
-  min_total_tickets: 200           # Genau was verfügbar ist
-  validation_split: 0.2            # 20% für Validierung
+  total_experimental_tickets: 32   # 2 pro Bedingung für Demo (16 Bedingungen)
+  min_tickets_per_category: 8      # Reduziert für Demo
+  min_per_condition: 2             # Minimal für Demo
+  min_total_tickets: 32            # Angepasst
+  validation_split: 0.2
   
 design:
   factorial_design: "2x4x2"        # LLM × Few-Shot × Prompt
@@ -52,14 +55,15 @@ paths:
   data_dir: "data/"
   results_dir: "results/"
   # Haupt-Ticketdatei für wissenschaftliches Experiment
-  ticket_file: "tickets_200.xlsx"
+  ticket_file: "tickets_extended_187.xlsx"
   # Few-Shot-Beispiel-Datei
   fewshot_file: "tickets_examples.xlsx"
   
-# Prompt-Templates
+# Prompt-Templates für wissenschaftliche Konsistenz
 prompts:
   structured_template: |
     Sie sind ein IT-Support-Experte. Ihre Aufgabe ist es, das folgende Ticket einer der untenstehenden Kategorien zuzuordnen.
+    
     Kategorien:
     - Hardware: Probleme mit Geräten (z.B. Laptop, Drucker, Monitor)
     - Software: Probleme mit Programmen (z.B. Excel, VPN, Email)
@@ -69,6 +73,7 @@ prompts:
     Ticket: {ticket_text}
     
     Bitte geben Sie nur die Kategorie an:
+    
   unstructured_template: |
     Was für ein IT-Problem ist das? Mögliche Kategorien: Hardware, Software, Network, Security.
     {ticket_text}

@@ -1,0 +1,67 @@
+experiment:
+  random_seed: 42
+  total_experimental_tickets: 16   # Nur 1 Ticket pro Bedingung für Demo
+  min_tickets_per_category: 4      # Minimal für Demo
+  min_per_condition: 1             # Nur 1 pro Bedingung
+  min_total_tickets: 16            # Sehr reduziert
+  validation_split: 0.2
+  
+design:
+  factorial_design: "2x4x2"        # Trotzdem vollständiges Design
+  
+models:
+  - "llama3.1:8b"
+  - "mistral:7b"
+
+few_shot_counts: [0, 1, 3, 5]      # Komplette Progression
+prompt_types: ["structured", "unstructured"]
+
+llm_params:
+  temperature: 0.1
+  top_p: 0.9
+  max_tokens: 50
+
+quality_control:
+  min_ticket_length: 20
+  max_retry_attempts: 2             # Reduziert für Demo
+  timeout_seconds: 30               # Schneller für Demo
+  response_validation: true
+  
+statistics:
+  alpha_level: 0.05
+  power_target: 0.80
+  effect_size_threshold: 0.30
+  bonferroni_correction: true
+
+ollama:
+  base_url: "http://localhost:11434"
+  timeout: 30
+
+categories:
+  - "Hardware"
+  - "Software" 
+  - "Network"
+  - "Security"
+
+paths:
+  data_dir: "data/"
+  results_dir: "results/"
+  ticket_file: "tickets_extended_187.xlsx"  # Gleiche Daten, aber weniger verwendet
+  fewshot_file: "tickets_examples.xlsx"
+  
+prompts:
+  structured_template: |
+    Sie sind ein IT-Support-Experte. Ihre Aufgabe ist es, das folgende Ticket einer der untenstehenden Kategorien zuzuordnen.
+    Kategorien:
+    - Hardware: Probleme mit Geräten (z.B. Laptop, Drucker, Monitor)
+    - Software: Probleme mit Programmen (z.B. Excel, VPN, Email)
+    - Network: Probleme mit Netzwerk (z.B. Internet, WLAN, Server)
+    - Security: Sicherheitsprobleme (z.B. Phishing, Passwort, Malware)
+    
+    Ticket: {ticket_text}
+    
+    Bitte geben Sie nur die Kategorie an:
+  unstructured_template: |
+    Was für ein IT-Problem ist das? Mögliche Kategorien: Hardware, Software, Network, Security.
+    {ticket_text}
+    Antwort:
