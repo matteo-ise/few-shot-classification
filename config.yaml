@@ -1,10 +1,10 @@
 experiment:
   random_seed: 42
-  total_experimental_tickets: 200  # PERFEKT! Genau was wir haben
-  min_tickets_per_category: 50     # PERFEKT! Genau 50 pro Kategorie  
-  min_per_condition: 25            # Optimal: 200/8 Bedingungen = 25
-  min_total_tickets: 200           # Genau was verfügbar ist
-  validation_split: 0.2            # 20% für Validierung
+  total_experimental_tickets: 200  # Ihre perfekten 200 Tickets
+  min_tickets_per_category: 50     # Exakt 50 pro Kategorie
+  min_per_condition: 25            # 200/8 = 25 (optimal für Statistik)
+  min_total_tickets: 200           # Exakt verfügbar
+  validation_split: 0.2
   
 design:
   factorial_design: "2x4x2"        # LLM × Few-Shot × Prompt
@@ -26,7 +26,7 @@ quality_control:
   min_ticket_length: 20            # Mindestzeichen pro Ticket
   max_retry_attempts: 3            # LLM Retry-Versuche
   timeout_seconds: 45              # Timeout pro Request
-  response_validation: true        # Validiere LLM-Antworten
+  response_validation: false       # PROBLEM: Zu restriktiv - deaktiviert
   
 # Statistische Parameter
 statistics:

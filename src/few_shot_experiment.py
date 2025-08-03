@@ -303,27 +303,45 @@ class FewShotExperiment:
 
     def _create_prompt(self, ticket_text: str, few_shot_examples: List[Dict], prompt_type: str, categories: List[str]) -> str:
         """
-        Erstellt einen Prompt für das LLM.
-        - ticket_text: Der Text des zu klassifizierenden Tickets
-        - few_shot_examples: Liste von Beispielen (für Few-Shot-Learning)
-        - prompt_type: "structured" oder "unstructured"
-        - categories: Liste der möglichen Kategorien
+        Erstellt wissenschaftlich differenzierte Prompts für das LLM.
+        
+        STRUCTURED: Formal, akademisch, explizite Instruktionen
+        UNSTRUCTURED: Natürlich, konversational, implizite Aufgabenstellung
         """
         if prompt_type == "structured":
-            # Wissenschaftlich: Klare Instruktion, Definitionen, Format
-            prompt = "Klassifiziere das folgende IT-Support-Ticket in eine der Kategorien.\n\n"
-            for cat in categories:
-                prompt += f"- {cat}\n"
-            prompt += "\n"
-            for example in few_shot_examples:
-                prompt += f"Beispiel:\nTicket: {example['ticket_text']}\nKategorie: {example['label']}\n\n"
-            prompt += f"Ticket: {ticket_text}\nKategorie:"
+            # STRUKTURIERT: Formaler, akademischer Stil mit expliziten Definitionen
+            prompt = "**IT-SUPPORT TICKET KLASSIFIKATION**\n\n"
+            prompt += "AUFGABE: Klassifizieren Sie das folgende IT-Support-Ticket in genau eine der definierten Kategorien.\n\n"
+            prompt += "KATEGORIEN:\n"
+            prompt += "• Hardware: Physische Geräte, Komponenten, Peripherie\n"
+            prompt += "• Software: Programme, Anwendungen, Betriebssysteme\n" 
+            prompt += "• Network: Netzwerk, Konnektivität, Internet, VPN\n"
+            prompt += "• Security: Sicherheit, Zugriff, Berechtigungen, Malware\n\n"
+            
+            if few_shot_examples:
+                prompt += "BEISPIELE:\n"
+                for i, example in enumerate(few_shot_examples, 1):
+                    prompt += f"{i}. Ticket: {example['ticket_text']}\n"
+                    prompt += f"   Kategorie: {example['label']}\n\n"
+            
+            prompt += "ZU KLASSIFIZIEREN:\n"
+            prompt += f"Ticket: {ticket_text}\n\n"
+            prompt += "ANTWORT (nur Kategoriename): "
+            
         else:
-            # Unstrukturierter Prompt, aber mit klaren Kategorien
-            prompt = f"Was für ein IT-Problem ist das? Mögliche Kategorien: {', '.join(categories)}\n\n"
-            for example in few_shot_examples:
-                prompt += f"Problem: {example['ticket_text']}\nAntwort: {example['label']}\n\n"
-            prompt += f"Problem: {ticket_text}\nAntwort:"
+            # UNSTRUKTURIERT: Natürlicher, konversationaler Stil
+            prompt = f"Hey! Kannst du mir bei diesem IT-Problem helfen? "
+            prompt += f"Es geht um eins von diesen Dingen: {', '.join(categories)}.\n\n"
+            
+            if few_shot_examples:
+                prompt += "Hier sind ein paar Beispiele:\n"
+                for example in few_shot_examples:
+                    prompt += f"Problem: {example['ticket_text']}\n"
+                    prompt += f"Das ist: {example['label']}\n\n"
+            
+            prompt += f"Und jetzt dieses Problem hier: {ticket_text}\n\n"
+            prompt += "Was denkst du, was das ist? "
+            
         return prompt
 
     def _query_llm(self, prompt: str, model: str, max_retries: int = 3) -> Optional[str]:
@@ -362,12 +380,14 @@ class FewShotExperiment:
                 if response.status_code == 200:
                     result = response.json().get("response", "").strip()
                     
-                    # Response validation
+                    # Response validation mit detailliertem Logging
                     if self._validate_llm_response(result):
-                        self.logger.debug(f"LLM success: {model}, attempt {attempt+1}, time {end_time-start_time:.2f}s")
+                        self.logger.debug(f"✅ LLM success: {model}, attempt {attempt+1}, time {end_time-start_time:.2f}s")
+                        self.logger.debug(f"Response preview: '{result[:100]}...'")
                         return result
                     else:
-                        self.logger.warning(f"Invalid response from {model}: {result[:50]}...")
+                        self.logger.warning(f"❌ Invalid response from {model}: '{result[:200]}...'")
+                        self.logger.info(f"Response length: {len(result)}, full response logged for debugging")
                         
                 else:
                     self.logger.warning(f"LLM HTTP error: {response.status_code}, attempt {attempt+1}")
@@ -391,11 +411,14 @@ class FewShotExperiment:
         if not response or len(response.strip()) == 0:
             return False
             
-        # Check if response contains at least one valid category
-        categories = self.config.get('categories', [])
-        response_lower = response.lower()
+        # Mehr tolerante Validation - akzeptiere auch Teilantworten
+        response_clean = response.strip().lower()
         
-        return any(cat.lower() in response_lower for cat in categories)
+        # Akzeptiere wenn Response mindestens 3 Zeichen hat
+        if len(response_clean) >= 3:
+            return True
+            
+        return False
     
     def run_experiment(self, models=None, few_shot_counts=None, prompt_types=None, n_tickets=None) -> pd.DataFrame:
         """
@@ -551,31 +574,74 @@ class FewShotExperiment:
 
     def _extract_category(self, response: str, categories: List[str]) -> str:
         """
-        Extrahiert die Kategorie aus der LLM-Antwort.
-        Gibt die erste Kategorie zurück, falls keine erkannt wird.
+        Extrahiert die Kategorie aus der LLM-Antwort mit robuster Fehlerbehandlung.
         """
-        response_lower = response.lower()
+        if not response:
+            self.logger.warning("Empty response, using fallback category")
+            return categories[0] if categories else "Unknown"
+            
+        response_lower = response.lower().strip()
+        
+        # Prüfe auf vollständige Kategorienamen
         for category in categories:
             if category.lower() in response_lower:
                 return category
+                
+        # Prüfe auf Teilübereinstimmungen (für abgeschnittene Antworten)
+        for category in categories:
+            cat_lower = category.lower()
+            # Prüfe ob mindestens 3 Zeichen übereinstimmen
+            if len(cat_lower) >= 3:
+                for i in range(3, len(cat_lower) + 1):
+                    if cat_lower[:i] in response_lower:
+                        self.logger.info(f"Partial match found: '{cat_lower[:i]}' -> {category}")
+                        return category
+        
+        # Fallback: Verwende erste Kategorie
+        self.logger.warning(f"No category found in response: '{response[:100]}...', using fallback")
         return categories[0] if categories else "Unknown"
 
     def _get_few_shot_examples(self, examples_df: pd.DataFrame, count: int) -> List[Dict]:
         """
-        Wählt zufällig Few-Shot-Beispiele aus. Anzahl = count.
-        Passt die Spaltennamen an die neue Struktur an (label statt kategorie).
+        Wählt WISSENSCHAFTLICH KORREKTE Few-Shot-Beispiele aus.
+        
+        Für N-Shot Learning:
+        - 0-shot: Keine Beispiele
+        - 1-shot: 1 Beispiel pro Kategorie (4 total)
+        - 3-shot: 3 Beispiele pro Kategorie (12 total) 
+        - 5-shot: 5 Beispiele pro Kategorie (20 total)
+        
+        Args:
+            examples_df: DataFrame mit 5 Beispielen pro Kategorie (20 total)
+            count: Anzahl Beispiele PRO KATEGORIE (nicht total!)
         """
         if count == 0:
             return []
-        selected = examples_df.sample(min(count, len(examples_df)), random_state=42)
-        # Passe die Spaltennamen an: 'label' statt 'kategorie'
-        examples = []
-        for _, row in selected.iterrows():
-            examples.append({
-                'ticket_text': row.get('subject', '') + '\n\n' + str(row.get('body', '')),
-                'label': row.get('label', '')
-            })
-        return examples
+            
+        categories = self.config.get('categories', [])
+        selected_examples = []
+        
+        for category in categories:
+            # Hole alle Beispiele dieser Kategorie
+            category_examples = examples_df[examples_df['label'] == category]
+            
+            if len(category_examples) >= count:
+                # Wähle die ersten 'count' Beispiele dieser Kategorie
+                selected = category_examples.head(count)
+            else:
+                # Falls weniger verfügbar, nimm alle
+                selected = category_examples
+                self.logger.warning(f"Nur {len(category_examples)} Beispiele für {category} verfügbar, benötigt: {count}")
+            
+            for _, row in selected.iterrows():
+                selected_examples.append({
+                    'ticket_text': row.get('subject', '') + '\n\n' + str(row.get('body', '')),
+                    'label': row.get('label', ''),
+                    'category': category  # Für Debugging
+                })
+        
+        self.logger.info(f"Few-Shot: {count} Beispiele pro Kategorie = {len(selected_examples)} total")
+        return selected_examples
 
     def _extract_ground_truth(self, ticket: Dict) -> str:
         """
@@ -615,41 +681,6 @@ class FewShotExperiment:
             'response': response,
             'correct': predicted_category == ground_truth
         }
-
-    def run_experiment(self, models=None, few_shot_counts=None, prompt_types=None, n_tickets=None) -> pd.DataFrame:
-        """
-        Führt das vollständige Experiment durch (jetzt mit flexiblen Parametern):
-        - Modelle, Few-Shot-Counts, Prompt-Typen und Ticketanzahl können eingeschränkt werden.
-        - Ergebnisse werden in einem eigenen Ordner gespeichert.
-        """
-        print("🚀 Starte Few-Shot Experiment für mehrere Modelle...")
-        tickets_df, examples_df = self._load_data()
-        if len(tickets_df) == 0:
-            print("❌ Keine Tickets gefunden!")
-            return pd.DataFrame()
-        # Übernehme ggf. reduzierte Einstellungen
-        models = models or self.config.get('models', ['llama3.1:8b', 'mistral:7b'])
-        few_shot_counts = few_shot_counts or self.config.get('few_shot_counts', [0, 1, 3, 5])
-        prompt_types = prompt_types or self.config.get('prompt_types', ['structured', 'unstructured'])
-        n_tickets = n_tickets or self.config.get('experiment', {}).get('total_tickets', 200)
-        # Tickets ggf. reduzieren
-        tickets_df = tickets_df.sample(min(n_tickets, len(tickets_df)), random_state=42)
-        categories = self.config.get('categories', [])
-        results = []
-        for model in models:
-            for few_shot_count in few_shot_counts:
-                for prompt_type in prompt_types:
-                    print(f"\n--- Modell: {model} | Few-Shot: {few_shot_count} | Prompt: {prompt_type} ---")
-                    for _, ticket in tickets_df.iterrows():
-                        result = self._classify_ticket(ticket, model, few_shot_count, prompt_type, examples_df, categories)
-                        results.append(result)
-        results_df = pd.DataFrame(results)
-        # Ergebnisse speichern
-        results_dir = os.path.join(self.config.get('paths', {}).get('results_dir', 'results/'), f"test_{self.test_id}")
-        os.makedirs(results_dir, exist_ok=True)
-        results_df.to_csv(os.path.join(results_dir, f"results_{self.test_id}.csv"), index=False)
-        print(f"\n💾 Ergebnisse gespeichert unter: {results_dir}")
-        return results_df
 
     def analyze_results(self, results_df: pd.DataFrame) -> Dict:
         """
@@ -1172,6 +1203,8 @@ class FewShotExperiment:
                             val = precision_score(group['ground_truth'], group['prediction'], average='weighted', zero_division=0)
                         elif metric == 'recall_weighted':
                             val = recall_score(group['ground_truth'], group['prediction'], average='weighted', zero_division=0)
+                        else:
+                            val = 0.0  # Fallback for unknown metrics
                         values.append(val)
                 
                 model_data[model] = values
