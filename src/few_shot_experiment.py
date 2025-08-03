@@ -1,5 +1,5 @@
 """
-Wissenschaftlich Rigoroses Few-Shot Learning Experiment für IT-Support-Tickets
+Wissenschaftlich Few-Shot Learning Experiment für IT-Support-Tickets
 
 Implementiert ein methodisch korrektes Experiment nach wissenschaftlichen Standards:
 - Factorial Design: 2×4×2 (LLM × Few-Shot-Count × Prompt-Type)
@@ -8,7 +8,7 @@ Implementiert ein methodisch korrektes Experiment nach wissenschaftlichen Standa
 - Baseline-Vergleich: Zero-shot als wissenschaftliche Kontrolle
 - Reproduzierbarkeit: Vollständige Dokumentation und Seeding
 
-Autor: DHBW Student (4. Semester)
+Autor: Matteo Isemann, DHBW Student (4. Semester)
 Für wissenschaftliche Projektarbeit optimiert
 """
 
@@ -1446,70 +1446,336 @@ class FewShotExperiment:
 
     def generate_report(self, results_df: pd.DataFrame, analysis: Dict):
         """
-        Erstellt einen wissenschaftlichen Bericht (Markdown) mit allen Ergebnissen und Erklärungen.
+        Generiert LaTeX-kompatible Berichte für wissenschaftliche Publikation.
+        
+        Erstellt:
+        - LaTeX-Tabellen mit allen Experiment-Ergebnissen
+        - Kategorienspezifische Accuracy-Matrizen
+        - Few-Shot-Progression-Daten für TikZ-Plots
+        - Vollständige Substitutionsdatei für chapter4.tex
         """
-        print("📝 Generiere wissenschaftlichen Bericht...")
-        results_dir = os.path.join(self.config.get('paths', {}).get('results_dir', 'results/'), f"test_{self.test_id}")
-        report = f"""
-# Few-Shot Learning Experiment Bericht
-
-**Test-ID:** {self.test_id}  
-**Datum:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
-**Gesamt-Accuracy:** {analysis['overall_accuracy']:.2%}  
-**Anzahl Experimente:** {len(results_df)}
-
-## Experiment-Design
-
-- **Modelle:** {', '.join(self.config.get('models', []))}
-- **Few-Shot-Counts:** {self.config.get('few_shot_counts', [])}
-- **Prompt-Types:** {self.config.get('prompt_types', [])}
-- **Kategorien:** {', '.join(self.config.get('categories', []))}
-
-## Ergebnisse pro Bedingung
-"""
-        for condition, metrics in analysis['condition_metrics'].items():
-            report += f"""
-### {condition}
-- **Accuracy:** {metrics['accuracy']:.2%}
-- **F1-Score:** {metrics['f1_score']:.2%}
-- **Precision:** {metrics['precision']:.2%}
-- **Recall:** {metrics['recall']:.2%}
-- **MCC:** {metrics['mcc']:.2%}
-- **Balanced Accuracy:** {metrics['balanced_accuracy']:.2%}
-- **Stichprobengröße:** {metrics['n_samples']}
-"""
-        if 'anova' in analysis:
-            report += f"""
-## Statistische Analyse
-
-**ANOVA-Ergebnisse:**
-- **F-Statistik:** {analysis['anova']['f_statistic']:.4f}
-- **p-Wert:** {analysis['anova']['p_value']:.4f}
-- **Statistisch signifikant:** {analysis['anova']['significant']}
-"""
-        report += f"""
-## Schlussfolgerungen
-
-1. **Beste Bedingung:** {max(analysis['condition_metrics'].items(), key=lambda x: x[1]['accuracy'])[0]} mit {max(analysis['condition_metrics'].items(), key=lambda x: x[1]['accuracy'])[1]['accuracy']:.2%} Accuracy
-2. **Few-Shot-Learning Effekt:** {'Ja' if any('1shots' in k or '3shots' in k or '5shots' in k for k in analysis['condition_metrics'].keys()) else 'Nein'}
-3. **Modell-Unterschiede:** {'Signifikant' if analysis.get('anova', {}).get('significant', False) else 'Nicht signifikant'}
-
-## Wissenschaftliche Hinweise
-- **Accuracy**: Anteil korrekt klassifizierter Tickets
-- **F1-Score**: Harm. Mittel von Precision und Recall (gut bei unbalancierten Daten)
-- **Precision**: Wie viele Vorhersagen waren korrekt?
-- **Recall**: Wie viele der echten Fälle wurden gefunden?
-- **MCC**: Matthews Correlation Coefficient (robust bei unbalancierten Klassen)
-- **Balanced Accuracy**: Durchschnittliche Recall über alle Klassen
-
-## Reproduzierbarkeit
-- Random Seed: {self.config.get('experiment', {}).get('random_seed', 42)}
-- Alle Parameter in config.yaml dokumentiert
-- Rohdaten, Analyse und Grafiken im Ergebnis-Ordner gespeichert
-"""
-        with open(os.path.join(results_dir, f"report_{self.test_id}.md"), "w", encoding="utf-8") as f:
-            f.write(report)
-        print("✅ Bericht generiert!")
+        self.logger.info("📝 Generating comprehensive LaTeX reports...")
+        
+        results_dir = os.path.join(
+            self.config.get('paths', {}).get('results_dir', 'results/'), 
+            f"test_{self.test_id}"
+        )
+        
+        # 1. Basisdaten für LaTeX-Substitution
+        latex_substitutions = self._generate_latex_substitutions(results_df, analysis)
+        
+        # 2. Kategorienspezifische Analyse
+        category_analysis = self._generate_category_analysis(results_df)
+        
+        # 3. Few-Shot-Progression für TikZ
+        tikz_data = self._generate_tikz_data(results_df)
+        
+        # 4. LaTeX-Tabellen generieren
+        latex_tables = self._generate_latex_tables(results_df, analysis, category_analysis)
+        
+        # 5. Vollständiger Report
+        self._generate_comprehensive_report(results_dir, latex_substitutions, category_analysis, tikz_data, latex_tables)
+        
+        self.logger.info("✅ LaTeX reports generated successfully!")
+        
+    def _generate_latex_substitutions(self, results_df: pd.DataFrame, analysis: Dict) -> Dict:
+        """Generiert alle Substitutionswerte für chapter4.tex"""
+        subs = {}
+        
+        # Grunddaten
+        subs['ANZAHL_TOTAL_TICKETS'] = str(len(results_df['ticket_id'].unique()))
+        
+        # Kategorienverteilung
+        categories = self.config.get('categories', [])
+        for cat in categories:
+            cat_count = len(results_df[results_df['ground_truth'] == cat]['ticket_id'].unique())
+            subs[f'ANZAHL_{cat.upper()}'] = str(cat_count)
+        
+        tickets_per_category = len(results_df['ticket_id'].unique()) // len(categories)
+        subs['TICKETS_PRO_KATEGORIE'] = str(tickets_per_category)
+        subs['N_PRO_BEDINGUNG'] = str(tickets_per_category)
+        
+        # Overall Metrics
+        overall_metrics = analysis.get('overall_metrics', {})
+        subs['OVERALL_ACCURACY'] = f"{overall_metrics.get('accuracy', 0)*100:.1f}"
+        subs['OVERALL_F1'] = f"{overall_metrics.get('f1_weighted', 0)*100:.1f}"
+        subs['OVERALL_MCC'] = f"{overall_metrics.get('mcc', 0):.3f}"
+        
+        # Zero-Shot Performance (wird später gefüllt)
+        self._add_zero_shot_substitutions(results_df, subs)
+        
+        # Few-Shot Progression (wird später gefüllt)
+        self._add_few_shot_substitutions(results_df, subs)
+        
+        # ANOVA Results
+        self._add_anova_substitutions(analysis, subs)
+        
+        # Effect Sizes
+        self._add_effect_size_substitutions(analysis, subs)
+        
+        return subs
+    
+    def _add_zero_shot_substitutions(self, results_df: pd.DataFrame, subs: Dict):
+        """Fügt Zero-Shot Performance-Daten hinzu"""
+        zero_shot_data = results_df[results_df['few_shot_count'] == 0]
+        
+        for model in ['llama3.1:8b', 'mistral:7b']:
+            model_short = 'LLAMA' if 'llama' in model else 'MISTRAL'
+            model_data = zero_shot_data[zero_shot_data['model'] == model]
+            
+            for prompt in ['structured', 'unstructured']:
+                prompt_short = 'STRUCT' if prompt == 'structured' else 'UNSTRUCT'
+                condition_data = model_data[model_data['prompt_type'] == prompt]
+                
+                if len(condition_data) > 0:
+                    accuracy = condition_data['correct'].mean() * 100
+                    subs[f'{model_short}_{prompt_short}_0SHOT'] = f"{accuracy:.1f}"
+                    
+                    # Kategorienspezifische Zero-Shot Performance
+                    for category in self.config.get('categories', []):
+                        cat_data = condition_data[condition_data['ground_truth'] == category]
+                        if len(cat_data) > 0:
+                            cat_accuracy = cat_data['correct'].mean() * 100
+                            cat_short = category[:3].upper() if len(category) >= 3 else category.upper()
+                            subs[f'{model_short[0]}_{prompt_short[0]}_{cat_short}'] = f"{cat_accuracy:.1f}"
+    
+    def _add_few_shot_substitutions(self, results_df: pd.DataFrame, subs: Dict):
+        """Fügt Few-Shot Performance-Daten hinzu"""
+        for model in ['llama3.1:8b', 'mistral:7b']:
+            model_short = 'LLAMA' if 'llama' in model else 'MISTRAL'
+            model_data = results_df[results_df['model'] == model]
+            
+            for prompt in ['structured', 'unstructured']:
+                prompt_short = 'STRUCT' if prompt == 'structured' else 'UNSTRUCT'
+                condition_data = model_data[model_data['prompt_type'] == prompt]
+                
+                # Performance für jede Few-Shot Anzahl
+                accuracies = []
+                for shots in [0, 1, 3, 5]:
+                    shot_data = condition_data[condition_data['few_shot_count'] == shots]
+                    if len(shot_data) > 0:
+                        accuracy = shot_data['correct'].mean() * 100
+                        subs[f'{model_short[0]}_{prompt_short[0]}_{shots}'] = f"{accuracy:.1f}"
+                        accuracies.append(accuracy)
+                
+                # Delta-Berechnung (0-Shot zu 5-Shot)
+                if len(accuracies) >= 2:
+                    delta = accuracies[-1] - accuracies[0]  # 5-Shot - 0-Shot
+                    subs[f'{model_short[0]}_{prompt_short[0]}_DELTA'] = f"{delta:.1f}"
+    
+    def _add_anova_substitutions(self, analysis: Dict, subs: Dict):
+        """Fügt ANOVA-Ergebnisse hinzu"""
+        anova_results = analysis.get('anova_results', {})
+        
+        for factor in ['few_shot_count', 'model', 'prompt_type']:
+            if factor in anova_results and isinstance(anova_results[factor], dict):
+                result = anova_results[factor]
+                
+                factor_key = factor.upper().replace('_', '')
+                subs[f'F_STAT_{factor_key}'] = f"{result.get('F', 0):.2f}"
+                subs[f'P_VALUE_{factor_key}'] = f"{result.get('PR(>F)', 1):.3f}"
+                subs[f'EFFECT_SIZE_{factor_key}'] = f"{result.get('eta_squared', 0):.3f}"
+                subs[f'DF_{factor_key}'] = str(int(result.get('df', 1)))
+    
+    def _add_effect_size_substitutions(self, analysis: Dict, subs: Dict):
+        """Fügt Effektgrößen-Daten hinzu"""
+        effect_sizes = analysis.get('effect_sizes', {})
+        
+        for factor in ['few_shot_count', 'model', 'prompt_type']:
+            if factor in effect_sizes and isinstance(effect_sizes[factor], dict):
+                data = effect_sizes[factor]
+                subs[f'COHENS_F_{factor.upper()}'] = f"{data.get('cohens_f', 0):.3f}"
+                subs[f'EFFECT_INTERPRETATION_{factor.upper()}'] = data.get('interpretation', 'unknown')
+    
+    def _generate_category_analysis(self, results_df: pd.DataFrame) -> Dict:
+        """Generiert kategorienspezifische Analyse"""
+        categories = self.config.get('categories', [])
+        category_analysis = {}
+        
+        for category in categories:
+            cat_data = results_df[results_df['ground_truth'] == category]
+            category_analysis[category] = {
+                'total_instances': len(cat_data),
+                'overall_accuracy': cat_data['correct'].mean(),
+                'by_model': {},
+                'by_prompt': {},
+                'by_few_shot': {}
+            }
+            
+            # Nach Modell
+            for model in cat_data['model'].unique():
+                model_data = cat_data[cat_data['model'] == model]
+                category_analysis[category]['by_model'][model] = model_data['correct'].mean()
+            
+            # Nach Prompt-Typ
+            for prompt in cat_data['prompt_type'].unique():
+                prompt_data = cat_data[cat_data['prompt_type'] == prompt]
+                category_analysis[category]['by_prompt'][prompt] = prompt_data['correct'].mean()
+            
+            # Nach Few-Shot Count
+            for shots in sorted(cat_data['few_shot_count'].unique()):
+                shot_data = cat_data[cat_data['few_shot_count'] == shots]
+                category_analysis[category]['by_few_shot'][int(shots)] = shot_data['correct'].mean()
+        
+        return category_analysis
+    
+    def _generate_tikz_data(self, results_df: pd.DataFrame) -> Dict:
+        """Generiert Daten für TikZ Few-Shot Progression Plot"""
+        tikz_data = {}
+        
+        for model in results_df['model'].unique():
+            model_data = results_df[results_df['model'] == model]
+            tikz_data[model] = {}
+            
+            for prompt in ['structured', 'unstructured']:
+                prompt_data = model_data[model_data['prompt_type'] == prompt]
+                tikz_data[model][prompt] = {}
+                
+                for shots in sorted(prompt_data['few_shot_count'].unique()):
+                    shot_data = prompt_data[prompt_data['few_shot_count'] == shots]
+                    if len(shot_data) > 0:
+                        accuracy = shot_data['correct'].mean()
+                        std_error = shot_data['correct'].std() / np.sqrt(len(shot_data))
+                        
+                        tikz_data[model][prompt][shots] = {
+                            'accuracy': accuracy,
+                            'std_error': std_error,
+                            'n': len(shot_data)
+                        }
+        
+        return tikz_data
+    
+    def _generate_latex_tables(self, results_df: pd.DataFrame, analysis: Dict, category_analysis: Dict) -> Dict:
+        """Generiert vollständige LaTeX-Tabellen"""
+        tables = {}
+        
+        # Confusion Matrix für beste Bedingung
+        condition_metrics = analysis.get('condition_metrics', {})
+        if condition_metrics:
+            best_condition = max(condition_metrics.items(), key=lambda x: x[1]['accuracy'])
+            best_condition_name = best_condition[0]
+            
+            # Extrahiere Bedingungsparameter
+            parts = best_condition_name.split('_')
+            if len(parts) >= 3:
+                model = parts[0]
+                shots = parts[1].replace('shots', '')
+                prompt = parts[2]
+                
+                condition_data = results_df[
+                    (results_df['model'] == model) & 
+                    (results_df['few_shot_count'] == int(shots)) & 
+                    (results_df['prompt_type'] == prompt)
+                ]
+                
+                if len(condition_data) > 0:
+                    tables['confusion_matrix_best'] = self._create_confusion_matrix_latex(condition_data)
+        
+        return tables
+    
+    def _create_confusion_matrix_latex(self, data: pd.DataFrame) -> str:
+        """Erstellt LaTeX-Code für Confusion Matrix"""
+        categories = self.config.get('categories', [])
+        cm = confusion_matrix(data['ground_truth'], data['prediction'], labels=categories)
+        
+        latex = "\\begin{table}[h!]\n\\centering\n"
+        latex += "\\caption{Confusion Matrix für beste experimentelle Bedingung}\n"
+        latex += "\\label{tab:confusion-matrix-best}\n\\small\n"
+        latex += "\\begin{tabular}{@{}l" + "c" * len(categories) + "@{}}\n"
+        latex += "\\toprule\n"
+        latex += "\\textbf{Actual \\ Predicted} & " + " & ".join([f"\\textbf{{{cat}}}" for cat in categories]) + " \\\\\n"
+        latex += "\\midrule\n"
+        
+        for i, actual_cat in enumerate(categories):
+            row = f"\\textbf{{{actual_cat}}}"
+            for j, _ in enumerate(categories):
+                row += f" & {cm[i][j]}"
+            row += " \\\\\n"
+            latex += row
+        
+        latex += "\\bottomrule\n\\end{tabular}\n\\end{table}\n"
+        
+        return latex
+    
+    def _generate_comprehensive_report(self, results_dir: str, substitutions: Dict, 
+                                     category_analysis: Dict, tikz_data: Dict, tables: Dict):
+        """Generiert vollständigen wissenschaftlichen Report"""
+        
+        # 1. LaTeX-Substitutionsdatei
+        subs_path = os.path.join(results_dir, f"latex_substitutions_{self.test_id}.tex")
+        with open(subs_path, 'w', encoding='utf-8') as f:
+            f.write("% Automatisch generierte LaTeX-Substitutionen\n")
+            f.write(f"% Experiment ID: {self.test_id}\n")
+            f.write(f"% Generiert am: {datetime.now().isoformat()}\n\n")
+            
+            for key, value in sorted(substitutions.items()):
+                f.write(f"\\newcommand{{\\{key}}}{{{value}}}\n")
+        
+        # 2. TikZ-Daten für Plots
+        tikz_path = os.path.join(results_dir, f"tikz_data_{self.test_id}.tex")
+        with open(tikz_path, 'w', encoding='utf-8') as f:
+            f.write("% TikZ-Daten für Few-Shot Progression Plot\n\n")
+            
+            for model, model_data in tikz_data.items():
+                model_clean = model.replace(':', '').replace('.', '')
+                for prompt, prompt_data in model_data.items():
+                    for shots, data in prompt_data.items():
+                        coord_name = f"{model_clean}{prompt}{shots}"
+                        f.write(f"\\coordinate ({coord_name}) at ({shots},{data['accuracy']:.3f});\n")
+        
+        # 3. Kategorienspezifischer Report
+        category_path = os.path.join(results_dir, f"category_analysis_{self.test_id}.json")
+        with open(category_path, 'w', encoding='utf-8') as f:
+            json.dump(category_analysis, f, indent=2, default=str)
+        
+        # 4. Vollständige LaTeX-Tabellen
+        if tables:
+            tables_path = os.path.join(results_dir, f"latex_tables_{self.test_id}.tex")
+            with open(tables_path, 'w', encoding='utf-8') as f:
+                f.write("% Automatisch generierte LaTeX-Tabellen\n\n")
+                for table_name, table_content in tables.items():
+                    f.write(f"% {table_name}\n{table_content}\n\n")
+        
+        # 5. Markdown-Report für einfache Ansicht
+        self._generate_markdown_report(results_dir, substitutions, category_analysis)
+        
+        self.logger.info(f"Reports saved:")
+        self.logger.info(f"  LaTeX substitutions: {subs_path}")
+        self.logger.info(f"  TikZ data: {tikz_path}")
+        self.logger.info(f"  Category analysis: {category_path}")
+        
+    def _generate_markdown_report(self, results_dir: str, substitutions: Dict, category_analysis: Dict):
+        """Generiert Markdown-Report für einfache Lesbarkeit"""
+        report_path = os.path.join(results_dir, f"report_{self.test_id}.md")
+        
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write(f"# Few-Shot Classification Experiment Report\n\n")
+            f.write(f"**Experiment ID:** {self.test_id}  \n")
+            f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n\n")
+            
+            f.write("## Key Results\n\n")
+            
+            # Grundstatistiken
+            f.write("### Basic Statistics\n\n")
+            f.write(f"- Total Tickets: {substitutions.get('ANZAHL_TOTAL_TICKETS', 'N/A')}\n")
+            f.write(f"- Overall Accuracy: {substitutions.get('OVERALL_ACCURACY', 'N/A')}%\n")
+            f.write(f"- Overall F1-Score: {substitutions.get('OVERALL_F1', 'N/A')}%\n\n")
+            
+            # Zero-Shot Performance
+            f.write("### Zero-Shot Performance\n\n")
+            f.write("| Model | Structured | Unstructured |\n")
+            f.write("|-------|------------|-------------|\n")
+            f.write(f"| Llama 3.1 8B | {substitutions.get('LLAMA_STRUCT_0SHOT', 'N/A')}% | {substitutions.get('LLAMA_UNSTRUCT_0SHOT', 'N/A')}% |\n")
+            f.write(f"| Mistral 7B | {substitutions.get('MISTRAL_STRUCT_0SHOT', 'N/A')}% | {substitutions.get('MISTRAL_UNSTRUCT_0SHOT', 'N/A')}% |\n\n")
+            
+            # Kategorienspezifische Performance
+            f.write("### Category-Specific Performance\n\n")
+            for category, data in category_analysis.items():
+                f.write(f"#### {category}\n")
+                f.write(f"- Overall Accuracy: {data['overall_accuracy']*100:.1f}%\n")
+                f.write(f"- Total Instances: {data['total_instances']}\n\n")
+        
+        self.logger.info(f"Markdown report: {report_path}")
 
 def calculate_required_sample_size(effect_size: float = 0.3, power: float = 0.8, alpha: float = 0.05) -> int:
     """
