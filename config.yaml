@@ -19,13 +19,13 @@ prompt_types: ["structured", "unstructured"]
 llm_params:
   temperature: 0.1                 # Niedrig für Konsistenz
   top_p: 0.9
-  max_tokens: 50
+  max_tokens: 10                   # Reduziert für bessere Performance
 
 # Qualitätskontrolle für wissenschaftliche Rigorosität
 quality_control:
   min_ticket_length: 20            # Mindestzeichen pro Ticket
-  max_retry_attempts: 3            # LLM Retry-Versuche
-  timeout_seconds: 45              # Timeout pro Request
+  max_retry_attempts: 2            # Reduziert für bessere Performance
+  timeout_seconds: 30              # Reduziert für bessere Performance
   response_validation: false       # PROBLEM: Zu restriktiv - deaktiviert
   
 # Statistische Parameter
@@ -56,20 +56,4 @@ paths:
   # Few-Shot-Beispiel-Datei
   fewshot_file: "tickets_examples.xlsx"
   
-# Prompt-Templates
-prompts:
-  structured_template: |
-    Sie sind ein IT-Support-Experte. Ihre Aufgabe ist es, das folgende Ticket einer der untenstehenden Kategorien zuzuordnen.
-    Kategorien:
-    - Hardware: Probleme mit Geräten (z.B. Laptop, Drucker, Monitor)
-    - Software: Probleme mit Programmen (z.B. Excel, VPN, Email)
-    - Network: Probleme mit Netzwerk (z.B. Internet, WLAN, Server)
-    - Security: Sicherheitsprobleme (z.B. Phishing, Passwort, Malware)
-    
-    Ticket: {ticket_text}
-    
-    Bitte geben Sie nur die Kategorie an:
-  unstructured_template: |
-    Was für ein IT-Problem ist das? Mögliche Kategorien: Hardware, Software, Network, Security.
-    {ticket_text}
-    Antwort:
+# Prompt-Templates werden jetzt direkt im Code definiert für bessere Kontrolle

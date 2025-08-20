@@ -28,7 +28,7 @@ def create_synthetic_results() -> pd.DataFrame:
     """
     print("🔧 Generiere synthetische Experimentdaten...")
     
-    # Experimentparameter
+    # Experimentparameter (realistisch für echte Daten)
     models = ['llama3.1:8b', 'mistral:7b']
     few_shot_counts = [0, 1, 3, 5]
     prompt_types = ['structured', 'unstructured']
@@ -46,13 +46,20 @@ def create_synthetic_results() -> pd.DataFrame:
     results = []
     ticket_id = 1
     
+    # Realistische Stichprobengrößen (basierend auf echten 200 Tickets)
+    tickets_per_condition = 200 // (len(models) * len(few_shot_counts) * len(prompt_types))  # ~6 tickets
+    total_per_category = tickets_per_condition * len(models) * len(few_shot_counts) * len(prompt_types)  # ~50 pro Kategorie
+    
+    results = []
+    ticket_id = 1
+    
     # Generiere für jede Bedingung
     for model in models:
         for few_shot in few_shot_counts:
             for prompt in prompt_types:
                 for category in categories:
-                    # 20 Tickets pro Bedingung/Kategorie (realistisch)
-                    n_tickets = 20
+                    # Realistische Tickets pro Bedingung/Kategorie (~6)
+                    n_tickets = tickets_per_condition
                     
                     # Berechne erwartete Accuracy für diese Bedingung
                     base_acc = base_accuracy[model][prompt]
