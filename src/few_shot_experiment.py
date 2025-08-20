@@ -234,13 +234,16 @@ class FewShotExperiment:
         valid_categories = self.config.get('categories', [])
         df = df[df['label'].isin(valid_categories)]
         
-        # Mindestlänge für Ticket-Text
+        # Mindestlänge für Ticket-Text - KONSISTENT mit Prompt-Erstellung
         min_length = self.config.get('quality_control', {}).get('min_ticket_length', 20)
-        df['combined_text'] = df['subject'].astype(str) + ' ' + df['body'].astype(str)
+        df['combined_text'] = df['subject'].astype(str) + '\n\n' + df['body'].astype(str)
         df = df[df['combined_text'].str.len() >= min_length]
         
         # Entferne Duplikate basierend auf Text
         df = df.drop_duplicates(subset=['combined_text'])
+        
+        # Erstelle eindeutige Ticket-IDs
+        df['ticket_id'] = df.apply(lambda row: f"{row['subject'][:30]}_{hash(row['combined_text']) % 10000}", axis=1)
         
         filtered_count = len(df)
         removed_count = initial_count - filtered_count
@@ -305,44 +308,47 @@ class FewShotExperiment:
         """
         Erstellt wissenschaftlich differenzierte Prompts für das LLM.
         
-        STRUCTURED: Formal, akademisch, explizite Instruktionen
-        UNSTRUCTURED: Natürlich, konversational, implizite Aufgabenstellung
+        WISSENSCHAFTLICHE KONTRASTE:
+        - STRUCTURED: Explizite Instruktionen, formale Struktur, klare Formatierung
+        - UNSTRUCTURED: Implizite Aufgabenstellung, natürliche Sprache, minimale Struktur
+        
+        EXPERIMENTELLE KONTROLLE:
+        - Ein Wort Antworten für konsistente Parsing
+        - Klare Kategorien-Definitionen
+        - Standardisierte Beispiel-Formatierung
+        - Zero-Shot Baseline ohne explizite Kategorien
+        
+        WISSENSCHAFTLICHE DOKUMENTATION:
+        - Prompt-Version: 2.0 (wissenschaftlich optimiert)
+        - Validierung: Ein-Wort-Responses, exakte Kategorie-Matching
+        - Reproduzierbarkeit: Deterministische Struktur
         """
         if prompt_type == "structured":
-            # STRUKTURIERT: Formaler, akademischer Stil mit expliziten Definitionen
-            prompt = "**IT-SUPPORT TICKET KLASSIFIKATION**\n\n"
-            prompt += "AUFGABE: Klassifizieren Sie das folgende IT-Support-Ticket in genau eine der definierten Kategorien.\n\n"
-            prompt += "KATEGORIEN:\n"
-            prompt += "• Hardware: Physische Geräte, Komponenten, Peripherie\n"
-            prompt += "• Software: Programme, Anwendungen, Betriebssysteme\n" 
-            prompt += "• Network: Netzwerk, Konnektivität, Internet, VPN\n"
-            prompt += "• Security: Sicherheit, Zugriff, Berechtigungen, Malware\n\n"
+            # STRUKTURIERT: Explizite, formale Instruktionen
+            prompt = "AUFGABE: Klassifiziere das folgende IT-Support-Ticket.\n\n"
+            prompt += f"VERFÜGBARE KATEGORIEN: {', '.join(categories)}\n\n"
             
             if few_shot_examples:
                 prompt += "BEISPIELE:\n"
                 for i, example in enumerate(few_shot_examples, 1):
-                    prompt += f"{i}. Ticket: {example['ticket_text']}\n"
-                    prompt += f"   Kategorie: {example['label']}\n\n"
+                    prompt += f"Ticket {i}:\n{example['ticket_text']}\n"
+                    prompt += f"Kategorie: {example['label']}\n\n"
             
-            prompt += "ZU KLASSIFIZIEREN:\n"
-            prompt += f"Ticket: {ticket_text}\n\n"
-            prompt += "WICHTIG: Geben Sie NUR das Wort der Kategorie an (Hardware, Software, Network oder Security). Keine Sätze, keine Erklärungen, keine Satzzeichen.\n\n"
-            prompt += "ANTWORT: "
+            prompt += f"ZU KLASSIFIZIEREN:\n{ticket_text}\n\n"
+            prompt += f"ANTWORT (nur ein Wort aus: {', '.join(categories)}): "
             
         else:
-            # UNSTRUKTURIERT: Natürlicher, konversationaler Stil
-            prompt = f"Hey! Kannst du mir bei diesem IT-Problem helfen? "
-            prompt += f"Es geht um eins von diesen Dingen: {', '.join(categories)}.\n\n"
+            # UNSTRUKTURIERT: Natürliche, implizite Aufgabenstellung
+            prompt = f"Hier ist ein IT-Problem:\n{ticket_text}\n\n"
             
             if few_shot_examples:
-                prompt += "Hier sind ein paar Beispiele:\n"
+                prompt += "Ähnliche Probleme und ihre Lösungen:\n"
                 for example in few_shot_examples:
-                    prompt += f"Problem: {example['ticket_text']}\n"
-                    prompt += f"Das ist: {example['label']}\n\n"
+                    prompt += f"- {example['ticket_text']}\n"
+                    prompt += f"  → {example['label']}\n\n"
             
-            prompt += f"Und jetzt dieses Problem hier: {ticket_text}\n\n"
-            prompt += "WICHTIG: Antworte nur mit einem Wort (Hardware, Software, Network oder Security). Keine Sätze!\n\n"
-            prompt += "Was ist das? "
+            prompt += f"Was ist das für ein Problem? ({', '.join(categories)})\n"
+            prompt += "Antwort: "
             
         return prompt
 
@@ -413,13 +419,22 @@ class FewShotExperiment:
         if not response or len(response.strip()) == 0:
             return False
             
-        # Mehr tolerante Validation - akzeptiere auch Teilantworten
+        # Robuste Validation für "Ein Wort" Antworten
         response_clean = response.strip().lower()
+        valid_categories = [cat.lower() for cat in self.config.get('categories', [])]
         
-        # Akzeptiere wenn Response mindestens 3 Zeichen hat
-        if len(response_clean) >= 3:
-            return True
-            
+        # Prüfe auf vollständige Kategorienamen (Ein Wort)
+        for category in valid_categories:
+            if category == response_clean:  # Exakte Übereinstimmung für Ein Wort
+                return True
+                
+        # Prüfe auf Teilübereinstimmungen (für abgeschnittene Antworten)
+        for category in valid_categories:
+            if len(category) >= 3:
+                for i in range(3, len(category) + 1):
+                    if category[:i] == response_clean:  # Exakte Übereinstimmung
+                        return True
+        
         return False
     
     def run_experiment(self, models=None, few_shot_counts=None, prompt_types=None, n_tickets=None) -> pd.DataFrame:
@@ -607,6 +622,11 @@ class FewShotExperiment:
         """
         Wählt WISSENSCHAFTLICH KORREKTE Few-Shot-Beispiele aus.
         
+        HYBRID-STRATEGIE für kleine Stichproben (n=5 pro Kategorie):
+        - Randomisierung für wissenschaftliche Rigorosität
+        - Qualitätskontrolle für konsistente Beispiele
+        - Reproduzierbarkeit durch deterministischen Seed
+        
         Für N-Shot Learning:
         - 0-shot: Keine Beispiele
         - 1-shot: 1 Beispiel pro Kategorie (4 total)
@@ -628,8 +648,15 @@ class FewShotExperiment:
             category_examples = examples_df[examples_df['label'] == category]
             
             if len(category_examples) >= count:
-                # Wähle die ersten 'count' Beispiele dieser Kategorie
-                selected = category_examples.head(count)
+                # WISSENSCHAFTLICH: Randomisierung mit Qualitätskontrolle
+                # Bei kleinen Stichproben (n=5) ist Randomisierung wichtig für Rigorosität
+                # aber wir verwenden einen deterministischen Seed für Reproduzierbarkeit
+                selected = category_examples.sample(n=count, random_state=self.random_seed)
+                
+                # Logging für wissenschaftliche Transparenz
+                selected_subjects = selected['subject'].tolist()
+                self.logger.debug(f"Selected {count} examples for {category}: {selected_subjects}")
+                
             else:
                 # Falls weniger verfügbar, nimm alle
                 selected = category_examples
@@ -639,10 +666,11 @@ class FewShotExperiment:
                 selected_examples.append({
                     'ticket_text': row.get('subject', '') + '\n\n' + str(row.get('body', '')),
                     'label': row.get('label', ''),
-                    'category': category  # Für Debugging
+                    'category': category,  # Für Debugging
+                    'example_id': f"{category}_{row.name}"  # Für Reproduzierbarkeit
                 })
         
-        self.logger.info(f"Few-Shot: {count} Beispiele pro Kategorie = {len(selected_examples)} total")
+        self.logger.info(f"Few-Shot: {count} Beispiele pro Kategorie = {len(selected_examples)} total (randomisiert)")
         return selected_examples
 
     def _extract_ground_truth(self, ticket: Dict) -> str:
@@ -662,7 +690,7 @@ class FewShotExperiment:
         response = self._query_llm(prompt, model)
         if response is None:
             return {
-                'ticket_id': ticket.get('subject', 'Unknown'),
+                'ticket_id': ticket.get('ticket_id', 'Unknown'),
                 'ground_truth': self._extract_ground_truth(ticket),
                 'prediction': categories[0],
                 'model': model,
@@ -674,7 +702,7 @@ class FewShotExperiment:
         predicted_category = self._extract_category(response, categories)
         ground_truth = self._extract_ground_truth(ticket)
         return {
-            'ticket_id': ticket.get('subject', 'Unknown'),
+            'ticket_id': ticket.get('ticket_id', 'Unknown'),
             'ground_truth': ground_truth,
             'prediction': predicted_category,
             'model': model,
@@ -689,6 +717,7 @@ class FewShotExperiment:
         Führt comprehensive wissenschaftliche Analyse durch.
         
         Implementiert:
+        - Experimentelle Integritätsvalidierung
         - Deskriptive Statistiken mit Konfidenzintervallen
         - Mehrstufige ANOVA mit Post-hoc-Tests
         - Effektgrößen (Cohen's f, η²)
@@ -698,13 +727,27 @@ class FewShotExperiment:
         """
         self.logger.info("📊 Starting Comprehensive Statistical Analysis...")
         
+        # KRITISCH: Validiere experimentelle Integrität zuerst
+        integrity_validation = self._validate_experimental_integrity(results_df)
+        
+        if integrity_validation['errors']:
+            self.logger.error("🚨 KRITISCHE EXPERIMENTELLE FEHLER GEFUNDEN:")
+            for error in integrity_validation['errors']:
+                self.logger.error(f"  • {error}")
+        
+        if integrity_validation['warnings']:
+            self.logger.warning("⚠️  EXPERIMENTELLE WARNUNGEN:")
+            for warning in integrity_validation['warnings']:
+                self.logger.warning(f"  • {warning}")
+        
         analysis = {
             'experiment_metadata': {
                 'test_id': self.test_id,
                 'total_classifications': len(results_df),
                 'timestamp': datetime.now().isoformat(),
                 'random_seed': self.random_seed
-            }
+            },
+            'integrity_validation': integrity_validation
         }
         
         # 1. Descriptive Statistics with Confidence Intervals
@@ -852,7 +895,8 @@ class FewShotExperiment:
             # Prepare data for ANOVA - convert boolean to numeric
             anova_data = results_df[['correct', 'model', 'few_shot_count', 'prompt_type']].copy()
             anova_data['correct'] = anova_data['correct'].astype(int)  # Convert boolean to int
-            anova_data['few_shot_count'] = anova_data['few_shot_count'].astype(str)
+            # WICHTIG: Behalte few_shot_count als numerisch für ordinale Behandlung
+            anova_data['few_shot_count'] = anova_data['few_shot_count'].astype(int)
             
             # Create design matrix using statsmodels
             formula = 'correct ~ C(model) + C(few_shot_count) + C(prompt_type) + C(model):C(few_shot_count) + C(model):C(prompt_type) + C(few_shot_count):C(prompt_type)'
@@ -2160,6 +2204,56 @@ class FewShotExperiment:
                 f.write(f"- Total Instances: {data['total_instances']}\n\n")
         
         self.logger.info(f"Markdown report: {report_path}")
+
+    def _validate_experimental_integrity(self, results_df: pd.DataFrame) -> Dict:
+        """
+        Validiert die experimentelle Integrität und identifiziert potenzielle Probleme.
+        """
+        validation_results = {
+            'warnings': [],
+            'errors': [],
+            'integrity_checks': {}
+        }
+        
+        # 1. Prüfe Ticket-Eindeutigkeit
+        ticket_counts = results_df['ticket_id'].value_counts()
+        duplicate_tickets = ticket_counts[ticket_counts > 16]  # Max 16 Bedingungen
+        if len(duplicate_tickets) > 0:
+            validation_results['errors'].append(f"Duplicate ticket IDs found: {list(duplicate_tickets.index)}")
+        
+        # 2. Prüfe Kategorienverteilung
+        for (model, few_shot, prompt), group in results_df.groupby(['model', 'few_shot_count', 'prompt_type']):
+            category_dist = group['ground_truth'].value_counts()
+            if len(category_dist) != 4:  # Sollte 4 Kategorien haben
+                validation_results['warnings'].append(f"Uneven category distribution in {model}_{few_shot}shots_{prompt}")
+        
+        # 3. Prüfe Response-Qualität
+        error_responses = results_df[results_df['response'] == 'ERROR']
+        error_rate = len(error_responses) / len(results_df)
+        if error_rate > 0.05:  # Mehr als 5% Fehler
+            validation_results['warnings'].append(f"High error rate: {error_rate:.2%}")
+        
+        # 4. Prüfe Few-Shot-Konsistenz
+        for few_shot in [0, 1, 3, 5]:
+            few_shot_data = results_df[results_df['few_shot_count'] == few_shot]
+            if len(few_shot_data) == 0:
+                validation_results['errors'].append(f"No data for {few_shot}-shot condition")
+        
+        # 5. Prüfe Modell-Konsistenz
+        for model in ['llama3.1:8b', 'mistral:7b']:
+            model_data = results_df[results_df['model'] == model]
+            if len(model_data) == 0:
+                validation_results['errors'].append(f"No data for model {model}")
+        
+        validation_results['integrity_checks'] = {
+            'total_classifications': len(results_df),
+            'unique_tickets': len(results_df['ticket_id'].unique()),
+            'error_rate': error_rate,
+            'expected_classifications': 3200,  # 2×4×2×200
+            'data_completeness': len(results_df) / 3200
+        }
+        
+        return validation_results
 
 def calculate_required_sample_size(effect_size: float = 0.3, power: float = 0.8, alpha: float = 0.05) -> int:
     """
