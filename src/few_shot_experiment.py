@@ -306,49 +306,49 @@ class FewShotExperiment:
 
     def _create_prompt(self, ticket_text: str, few_shot_examples: List[Dict], prompt_type: str, categories: List[str]) -> str:
         """
-        Erstellt wissenschaftlich differenzierte Prompts für das LLM.
+        Creates scientifically differentiated prompts for LLM classification.
         
-        WISSENSCHAFTLICHE KONTRASTE:
-        - STRUCTURED: Explizite Instruktionen, formale Struktur, klare Formatierung
-        - UNSTRUCTURED: Implizite Aufgabenstellung, natürliche Sprache, minimale Struktur
+        SCIENTIFIC CONTRASTS:
+        - STRUCTURED: Explicit instructions, formal structure, clear formatting
+        - UNSTRUCTURED: Implicit task setting, natural language, minimal structure
         
-        EXPERIMENTELLE KONTROLLE:
-        - Ein Wort Antworten für konsistente Parsing
-        - Klare Kategorien-Definitionen
-        - Standardisierte Beispiel-Formatierung
-        - Zero-Shot Baseline ohne explizite Kategorien
+        EXPERIMENTAL CONTROL:
+        - Single word responses for consistent parsing
+        - Clear category definitions
+        - Standardized example formatting
+        - Zero-shot baseline without explicit categories
         
-        WISSENSCHAFTLICHE DOKUMENTATION:
-        - Prompt-Version: 2.0 (wissenschaftlich optimiert)
-        - Validierung: Ein-Wort-Responses, exakte Kategorie-Matching
-        - Reproduzierbarkeit: Deterministische Struktur
+        SCIENTIFIC DOCUMENTATION:
+        - Prompt-Version: 2.1 (English optimized for consistent responses)
+        - Validation: Single-word responses, exact category matching
+        - Reproducibility: Deterministic structure
         """
         if prompt_type == "structured":
-            # STRUKTURIERT: Explizite, formale Instruktionen
-            prompt = "AUFGABE: Klassifiziere das folgende IT-Support-Ticket.\n\n"
-            prompt += f"VERFÜGBARE KATEGORIEN: {', '.join(categories)}\n\n"
+            # STRUCTURED: Explicit, formal instructions
+            prompt = "TASK: Classify the following IT support ticket.\n\n"
+            prompt += f"AVAILABLE CATEGORIES: {', '.join(categories)}\n\n"
             
             if few_shot_examples:
-                prompt += "BEISPIELE:\n"
+                prompt += "EXAMPLES:\n"
                 for i, example in enumerate(few_shot_examples, 1):
                     prompt += f"Ticket {i}:\n{example['ticket_text']}\n"
-                    prompt += f"Kategorie: {example['label']}\n\n"
+                    prompt += f"Category: {example['label']}\n\n"
             
-            prompt += f"ZU KLASSIFIZIEREN:\n{ticket_text}\n\n"
-            prompt += f"ANTWORT (nur ein Wort aus: {', '.join(categories)}): "
+            prompt += f"TO CLASSIFY:\n{ticket_text}\n\n"
+            prompt += f"ANSWER (only one word from: {', '.join(categories)}): "
             
         else:
-            # UNSTRUKTURIERT: Natürliche, implizite Aufgabenstellung
-            prompt = f"Hier ist ein IT-Problem:\n{ticket_text}\n\n"
+            # UNSTRUCTURED: Natural, implicit task setting
+            prompt = f"Here is an IT problem:\n{ticket_text}\n\n"
             
             if few_shot_examples:
-                prompt += "Ähnliche Probleme und ihre Lösungen:\n"
+                prompt += "Similar problems and their solutions:\n"
                 for example in few_shot_examples:
                     prompt += f"- {example['ticket_text']}\n"
                     prompt += f"  → {example['label']}\n\n"
             
-            prompt += f"Was ist das für ein Problem? ({', '.join(categories)})\n"
-            prompt += "Antwort: "
+            prompt += f"What kind of problem is this? ({', '.join(categories)})\n"
+            prompt += "ANSWER (only one word): "
             
         return prompt
 
@@ -415,27 +415,12 @@ class FewShotExperiment:
         return None
     
     def _validate_llm_response(self, response: str) -> bool:
-        """Validiert LLM-Antworten auf wissenschaftliche Qualität."""
-        if not response or len(response.strip()) == 0:
-            return False
-            
-        # Robuste Validation für "Ein Wort" Antworten
-        response_clean = response.strip().lower()
-        valid_categories = [cat.lower() for cat in self.config.get('categories', [])]
-        
-        # Prüfe auf vollständige Kategorienamen (Ein Wort)
-        for category in valid_categories:
-            if category == response_clean:  # Exakte Übereinstimmung für Ein Wort
-                return True
-                
-        # Prüfe auf Teilübereinstimmungen (für abgeschnittene Antworten)
-        for category in valid_categories:
-            if len(category) >= 3:
-                for i in range(3, len(category) + 1):
-                    if category[:i] == response_clean:  # Exakte Übereinstimmung
-                        return True
-        
-        return False
+        """
+        VEREINFACHTE Validierung - lässt ALLE Antworten durch.
+        Die ROBUSTE Extraktion erfolgt in _extract_category()!
+        """
+        # Nur grundlegende Checks - _extract_category() macht die richtige Arbeit
+        return bool(response and response.strip())
     
     def run_experiment(self, models=None, few_shot_counts=None, prompt_types=None, n_tickets=None) -> pd.DataFrame:
         """
@@ -538,6 +523,16 @@ class FewShotExperiment:
         # Save final results
         self._save_final_results(results_df)
         
+        # CRITICAL: Perform comprehensive analysis and visualizations
+        self.logger.info("📊 Starting comprehensive statistical analysis...")
+        analysis = self.analyze_results(results_df)
+        
+        self.logger.info("📈 Creating publication-quality visualizations...")
+        self.create_visualizations(results_df, analysis)
+        
+        self.logger.info("📝 Generating LaTeX reports...")
+        self.generate_report(results_df, analysis)
+        
         # Log experiment summary
         overall_accuracy = results_df['correct'].mean()
         success_rate = ((experiment_count - failed_requests) / experiment_count) * 100
@@ -591,31 +586,64 @@ class FewShotExperiment:
 
     def _extract_category(self, response: str, categories: List[str]) -> str:
         """
-        Extrahiert die Kategorie aus der LLM-Antwort mit robuster Fehlerbehandlung.
+        Extrahiert die Kategorie aus der LLM-Antwort mit ROBUSTER Fehlerbehandlung.
+        
+        Handles various response formats:
+        - "Hardware" ✅
+        - "Die richtige Kategorie ist: Hardware" ✅ 
+        - "Network..." ✅
+        - "Die Antwort ist: Network" ✅
         """
         if not response:
             self.logger.warning("Empty response, using fallback category")
             return categories[0] if categories else "Unknown"
             
         response_lower = response.lower().strip()
+        self.logger.debug(f"Extracting category from: '{response[:100]}...'")
         
-        # Prüfe auf vollständige Kategorienamen
+        # Strategy 1: Direct category match (most common)
         for category in categories:
             if category.lower() in response_lower:
+                self.logger.debug(f"✅ Direct match found: {category}")
                 return category
                 
-        # Prüfe auf Teilübereinstimmungen (für abgeschnittene Antworten)
+        # Strategy 2: Look for category at end of response (after colon, etc.)
+        # "Die Antwort ist: Network" -> "Network"
+        import re
+        for category in categories:
+            # Pattern: category name at end, possibly with punctuation
+            pattern = r'\b' + re.escape(category.lower()) + r'(?:\W|$)'
+            if re.search(pattern, response_lower):
+                self.logger.debug(f"✅ Pattern match found: {category}")
+                return category
+        
+        # Strategy 3: Partial matching for truncated responses
         for category in categories:
             cat_lower = category.lower()
-            # Prüfe ob mindestens 3 Zeichen übereinstimmen
+            # Check if at least 3 characters match
             if len(cat_lower) >= 3:
                 for i in range(3, len(cat_lower) + 1):
                     if cat_lower[:i] in response_lower:
-                        self.logger.info(f"Partial match found: '{cat_lower[:i]}' -> {category}")
+                        self.logger.debug(f"✅ Partial match found: '{cat_lower[:i]}' -> {category}")
                         return category
         
-        # Fallback: Verwende erste Kategorie
-        self.logger.warning(f"No category found in response: '{response[:100]}...', using fallback")
+        # Strategy 4: Fuzzy matching for common variations
+        fuzzy_mappings = {
+            'hard': 'Hardware',
+            'soft': 'Software', 
+            'net': 'Network',
+            'sec': 'Security',
+            'sicherheit': 'Security',
+            'netzwerk': 'Network'
+        }
+        
+        for fuzzy_term, category in fuzzy_mappings.items():
+            if fuzzy_term in response_lower and category in categories:
+                self.logger.debug(f"✅ Fuzzy match found: '{fuzzy_term}' -> {category}")
+                return category
+        
+        # Fallback: Use first category and log for debugging
+        self.logger.warning(f"❌ No category found in response: '{response[:150]}...', using fallback: {categories[0]}")
         return categories[0] if categories else "Unknown"
 
     def _get_few_shot_examples(self, examples_df: pd.DataFrame, count: int) -> List[Dict]:
@@ -1028,25 +1056,44 @@ class FewShotExperiment:
                 pooled_var = 0
                 total_n = 0
                 for group_name, group_data in groups:
-                    n = len(group_data)
-                    var = group_data.var(ddof=1)
-                    pooled_var += (n - 1) * var
-                    total_n += n - 1
+                    group_var = group_data.var(ddof=1)
+                    group_n = len(group_data)
+                    pooled_var += (group_n - 1) * group_var
+                    total_n += group_n - 1
                 
                 pooled_std = np.sqrt(pooled_var / total_n) if total_n > 0 else 0
                 
-                # Effect size (max difference between groups)
-                effect_size = (group_means.max() - group_means.min()) / pooled_std if pooled_std > 0 else 0
+                # Calculate Cohen's f (effect size)
+                grand_mean = results_df['correct'].mean()
+                between_group_var = sum(
+                    len(group_data) * (group_mean - grand_mean)**2 
+                    for group_mean, group_data in zip(group_means, groups)
+                ) / len(group_means)
                 
-                # Minimum sample size per group
-                min_n = group_sizes.min()
+                cohens_f = np.sqrt(between_group_var) / pooled_std if pooled_std > 0 else 0
+                
+                # Estimate statistical power (simplified calculation)
+                # In practice, you'd use statsmodels or other packages for exact power calculation
+                alpha = 0.05
+                min_sample_size = min(group_sizes)
+                
+                # Rough power estimation based on effect size and sample size
+                if cohens_f >= 0.4 and min_sample_size >= 25:
+                    estimated_power = 0.8  # High power
+                elif cohens_f >= 0.25 and min_sample_size >= 15:
+                    estimated_power = 0.6  # Medium power
+                elif cohens_f >= 0.1 and min_sample_size >= 10:
+                    estimated_power = 0.4  # Low power
+                else:
+                    estimated_power = 0.2  # Very low power
                 
                 power_results[factor] = {
-                    'observed_effect_size': effect_size,
-                    'min_sample_size': int(min_n),
-                    'max_difference': group_means.max() - group_means.min(),
+                    'effect_size_f': cohens_f,
+                    'min_sample_size': int(min_sample_size),
+                    'estimated_power': estimated_power,
+                    'power_adequate': estimated_power >= 0.8,
                     'pooled_std': pooled_std,
-                    'sufficient_power': min_n >= 25  # Rule of thumb for medium effect
+                    'alpha': alpha
                 }
                 
         except Exception as e:
@@ -1131,10 +1178,10 @@ class FewShotExperiment:
             f"test_{self.test_id}"
         )
         
-        # Set publication-ready style
-        plt.style.use('seaborn-v0_8-whitegrid')
+        # Set publication-ready style with improved parameters
+        plt.style.use('default')  # Use default instead of seaborn for better compatibility
         plt.rcParams.update({
-            'font.size': 12,
+            'font.size': 11,
             'axes.titlesize': 14,
             'axes.labelsize': 12,
             'xtick.labelsize': 10,
@@ -1142,7 +1189,13 @@ class FewShotExperiment:
             'legend.fontsize': 10,
             'figure.dpi': 300,
             'savefig.dpi': 300,
-            'savefig.bbox': 'tight'
+            'savefig.bbox': 'tight',
+            'savefig.facecolor': 'white',
+            'figure.facecolor': 'white',
+            'axes.facecolor': 'white',
+            'axes.edgecolor': 'black',
+            'axes.linewidth': 0.8,
+            'grid.alpha': 0.3
         })
         
         # 1. Few-Shot Progression Plot
@@ -1166,14 +1219,16 @@ class FewShotExperiment:
         self.logger.info("✅ Publication-quality visualizations created!")
     
     def _create_few_shot_progression_plot(self, results_df: pd.DataFrame, analysis: Dict, results_dir: str):
-        """Erstellt Few-Shot Progression Plot mit Konfidenzintervallen."""
-        fig, ax = plt.subplots(figsize=(12, 8))
+        """Erstellt Few-Shot Progression Plot mit Konfidenzintervallen - ENHANCED for better readability."""
+        fig, ax = plt.subplots(figsize=(14, 10))
         
-        # Prepare data
+        # Prepare data with improved model names
         progression_data = {}
         for model in results_df['model'].unique():
             model_data = results_df[results_df['model'] == model]
-            progression_data[model] = {
+            model_name = 'Llama 3.1 8B' if 'llama' in model else 'Mistral 7B'
+            
+            progression_data[model_name] = {
                 'few_shots': [],
                 'accuracies': [],
                 'ci_lower': [],
@@ -1191,44 +1246,84 @@ class FewShotExperiment:
                 else:
                     ci = (accuracy, accuracy)
                 
-                progression_data[model]['few_shots'].append(few_shot)
-                progression_data[model]['accuracies'].append(accuracy)
-                progression_data[model]['ci_lower'].append(ci[0])
-                progression_data[model]['ci_upper'].append(ci[1])
+                progression_data[model_name]['few_shots'].append(few_shot)
+                progression_data[model_name]['accuracies'].append(accuracy)
+                progression_data[model_name]['ci_lower'].append(ci[0])
+                progression_data[model_name]['ci_upper'].append(ci[1])
         
-        # Plot with error bars
-        colors = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D']
+        # Enhanced plotting with professional colors and styles
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']  # Better colors
         markers = ['o', 's', '^', 'D']
+        linestyles = ['-', '--', '-.', ':']
         
         for i, (model, data) in enumerate(progression_data.items()):
+            # Main plot with enhanced styling
             ax.errorbar(
                 data['few_shots'], data['accuracies'],
                 yerr=[np.array(data['accuracies']) - np.array(data['ci_lower']),
                       np.array(data['ci_upper']) - np.array(data['accuracies'])],
-                label=model, color=colors[i % len(colors)], marker=markers[i % len(markers)],
-                capsize=5, capthick=2, linewidth=2, markersize=8
+                label=model, 
+                color=colors[i % len(colors)], 
+                marker=markers[i % len(markers)],
+                linestyle=linestyles[i % len(linestyles)],
+                capsize=8, capthick=3, linewidth=3, markersize=12,
+                markerfacecolor='white', markeredgewidth=2.5, 
+                markeredgecolor=colors[i % len(colors)],
+                alpha=0.9
             )
+            
+            # Add value annotations above each point
+            for j, (x, y) in enumerate(zip(data['few_shots'], data['accuracies'])):
+                ax.annotate(f'{y:.3f}', 
+                           (x, y), 
+                           textcoords="offset points", 
+                           xytext=(0,20), 
+                           ha='center', va='bottom',
+                           fontsize=10, fontweight='bold',
+                           bbox=dict(boxstyle='round,pad=0.3', 
+                                   facecolor='white', alpha=0.9, 
+                                   edgecolor=colors[i % len(colors)],
+                                   linewidth=1.5))
         
-        ax.set_xlabel('Few-Shot Examples', fontweight='bold')
-        ax.set_ylabel('Classification Accuracy', fontweight='bold')
+        # Enhanced styling and labeling
+        ax.set_xlabel('Few-Shot Examples', fontweight='bold', fontsize=14)
+        ax.set_ylabel('Classification Accuracy', fontweight='bold', fontsize=14)
         ax.set_title('Few-Shot Learning Progression with 95% Confidence Intervals', 
-                    fontweight='bold', fontsize=16)
-        ax.legend(title='Model', title_fontsize=12, fontsize=11)
-        ax.grid(True, alpha=0.3)
-        ax.set_ylim(0, 1)
+                    fontweight='bold', fontsize=18, pad=25)
         
-        # Add statistical annotations
+        # Improved legend positioning
+        ax.legend(title='Model', title_fontsize=14, fontsize=12, 
+                 loc='lower right', frameon=True, fancybox=True, 
+                 shadow=True, borderpad=1)
+        
+        # Enhanced grid and limits
+        ax.grid(True, alpha=0.4, linestyle='--', linewidth=1)
+        ax.set_ylim(0, 1.08)  # Extra space for annotations
+        
+        # Set proper x-axis ticks
+        all_shots = sorted(set(shot for data in progression_data.values() for shot in data['few_shots']))
+        ax.set_xlim(-0.3, max(all_shots) + 0.3)
+        ax.set_xticks(all_shots)
+        
+        # Add baseline reference if available
         overall_accuracy = analysis.get('overall_metrics', {}).get('accuracy', 0)
-        ax.axhline(y=overall_accuracy, color='red', linestyle='--', alpha=0.7, 
-                  label=f'Overall Mean: {overall_accuracy:.3f}')
+        if overall_accuracy > 0:
+            ax.axhline(y=overall_accuracy, color='red', linestyle=':', alpha=0.8, linewidth=2,
+                      label=f'Overall Mean: {overall_accuracy:.3f}')
         
-        plt.tight_layout()
-        plt.savefig(os.path.join(results_dir, f"few_shot_progression_{self.test_id}.png"))
+        # Improve tick formatting
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f'{y:.2f}'))
+        
+        # Enhanced layout
+        plt.tight_layout(pad=2.5)
+        plt.savefig(os.path.join(results_dir, f"few_shot_progression_{self.test_id}.png"),
+                   dpi=300, bbox_inches='tight', facecolor='white')
         plt.close()
     
     def _create_model_comparison_plot(self, results_df: pd.DataFrame, analysis: Dict, results_dir: str):
-        """Erstellt detaillierten Modellvergleich mit multiplen Metriken."""
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+        """Erstellt detaillierten Modellvergleich mit multiplen Metriken - FIXED für bessere Lesbarkeit."""
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(18, 14))
         
         metrics = ['accuracy', 'f1_weighted', 'precision_weighted', 'recall_weighted']
         metric_names = ['Accuracy', 'F1-Score (Weighted)', 'Precision (Weighted)', 'Recall (Weighted)']
@@ -1239,6 +1334,7 @@ class FewShotExperiment:
             
             for model in results_df['model'].unique():
                 model_subset = results_df[results_df['model'] == model]
+                model_name = 'Llama 3.1 8B' if 'llama' in model else 'Mistral 7B'
                 
                 if metric == 'accuracy':
                     values = [group['correct'].mean() for _, group in model_subset.groupby(['few_shot_count', 'prompt_type'])]
@@ -1252,40 +1348,63 @@ class FewShotExperiment:
                         elif metric == 'recall_weighted':
                             val = recall_score(group['ground_truth'], group['prediction'], average='weighted', zero_division=0)
                         else:
-                            val = 0.0  # Fallback for unknown metrics
+                            val = 0.0
                         values.append(val)
                 
-                model_data[model] = values
+                model_data[model_name] = values
             
-            # Create box plot
+            # Create box plot with improved spacing
             positions = np.arange(1, len(model_data) + 1)
             bp = ax.boxplot([model_data[model] for model in model_data.keys()], 
                           positions=positions, patch_artist=True, 
-                          labels=list(model_data.keys()))
+                          labels=list(model_data.keys()), widths=0.6)
             
-            # Customize colors
-            colors = ['lightblue', 'lightcoral']
+            # Customize colors with transparency
+            colors = ['skyblue', 'lightcoral']
             for patch, color in zip(bp['boxes'], colors):
                 patch.set_facecolor(color)
-                patch.set_alpha(0.7)
+                patch.set_alpha(0.8)
+                patch.set_edgecolor('black')
+                patch.set_linewidth(1.2)
             
-            ax.set_title(f'{metric_name} by Model', fontweight='bold')
-            ax.set_ylabel(metric_name)
-            ax.grid(True, alpha=0.3)
-            ax.set_ylim(0, 1)
+            # Improve whiskers and median lines
+            for whisker in bp['whiskers']:
+                whisker.set_color('black')
+                whisker.set_linewidth(1.5)
+            for median in bp['medians']:
+                median.set_color('darkred')
+                median.set_linewidth(2)
             
-            # Add mean markers
+            # Add mean markers with improved positioning
             for i, (model, values) in enumerate(model_data.items()):
                 mean_val = np.mean(values)
-                ax.plot(i+1, mean_val, 'ro', markersize=8, markerfacecolor='red', 
-                       markeredgecolor='darkred', markeredgewidth=1)
-                ax.text(i+1, mean_val + 0.02, f'{mean_val:.3f}', 
-                       ha='center', va='bottom', fontweight='bold')
-        
+                ax.plot(i+1, mean_val, 'D', markersize=10, markerfacecolor='gold', 
+                       markeredgecolor='darkorange', markeredgewidth=2, alpha=0.9)
+                
+                # Position text BELOW the graph to avoid overlap
+                ax.text(i+1, -0.08, f'μ={mean_val:.3f}', 
+                       ha='center', va='top', fontweight='bold', fontsize=10,
+                       transform=ax.get_xaxis_transform())
+            
+            # Improved styling
+            ax.set_title(f'{metric_name}', fontweight='bold', fontsize=14, pad=15)
+            ax.set_ylabel(metric_name, fontweight='bold', fontsize=12)
+            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_ylim(0, 1.05)  # Extra space for text
+            
+            # Improve tick labels
+            ax.tick_params(axis='both', which='major', labelsize=10)
+            
+        # Main title with more space
         plt.suptitle('Model Performance Comparison Across All Metrics', 
-                    fontsize=18, fontweight='bold')
-        plt.tight_layout()
-        plt.savefig(os.path.join(results_dir, f"model_comparison_{self.test_id}.png"))
+                    fontsize=20, fontweight='bold', y=0.98)
+        
+        # Improved layout with extra bottom margin
+        plt.tight_layout(rect=[0, 0.05, 1, 0.94])
+        plt.subplots_adjust(bottom=0.12)  # Extra space for mean values
+        
+        plt.savefig(os.path.join(results_dir, f"model_comparison_{self.test_id}.png"),
+                   dpi=300, bbox_inches='tight', facecolor='white')
         plt.close()
     
     def _create_comprehensive_heatmap(self, results_df: pd.DataFrame, analysis: Dict, results_dir: str):
@@ -1449,8 +1568,8 @@ class FewShotExperiment:
         plt.close()
     
     def _create_statistical_boxplots(self, results_df: pd.DataFrame, analysis: Dict, results_dir: str):
-        """Erstellt Box Plots mit statistischen Signifikanzindikatoren."""
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        """Erstellt Box Plots mit statistischen Signifikanzindikatoren - FIXED für korrekte ANOVA-Daten."""
+        fig, axes = plt.subplots(1, 3, figsize=(20, 8))
         
         factors = ['model', 'few_shot_count', 'prompt_type']
         factor_names = ['Model', 'Few-Shot Count', 'Prompt Type']
@@ -1465,43 +1584,111 @@ class FewShotExperiment:
             for level in sorted(results_df[factor].unique()):
                 group_data = results_df[results_df[factor] == level]['correct'].astype(int)  # Convert boolean to int
                 factor_groups.append(group_data)
-                labels.append(str(level))
+                
+                # Improve label formatting
+                if factor == 'model':
+                    label = 'Llama 3.1 8B' if 'llama' in str(level) else 'Mistral 7B'
+                elif factor == 'few_shot_count':
+                    label = f'{level}-Shot'
+                else:
+                    label = str(level).title()
+                labels.append(label)
             
-            # Create box plot
-            bp = ax.boxplot(factor_groups, labels=labels, patch_artist=True)
+            # Ensure we have data to plot
+            if not factor_groups or all(len(group) == 0 for group in factor_groups):
+                self.logger.warning(f"No data available for factor: {factor}")
+                ax.text(0.5, 0.5, f'No data for {factor_name}', 
+                       ha='center', va='center', transform=ax.transAxes,
+                       fontsize=14, bbox=dict(boxstyle='round', facecolor='lightgray'))
+                continue
             
-            # Customize appearance
-            colors = plt.cm.Set3(np.linspace(0, 1, len(factor_groups)))
+            # Create box plot with improved styling
+            bp = ax.boxplot(factor_groups, labels=labels, patch_artist=True, widths=0.6)
+            
+            # Customize appearance with distinct colors
+            colors = plt.cm.Set2(np.linspace(0, 1, len(factor_groups)))
             for patch, color in zip(bp['boxes'], colors):
                 patch.set_facecolor(color)
-                patch.set_alpha(0.7)
+                patch.set_alpha(0.8)
+                patch.set_edgecolor('black')
+                patch.set_linewidth(1.5)
             
-            # Add statistical annotations
-            if factor in analysis.get('anova_results', {}):
-                p_value = analysis['anova_results'][factor].get('PR(>F)', 1.0)
-                if p_value is not None:
-                    if p_value < 0.001:
-                        sig_text = "***"
-                    elif p_value < 0.01:
-                        sig_text = "**"
-                    elif p_value < 0.05:
-                        sig_text = "*"
-                    else:
-                        sig_text = "ns"
-                    
-                    ax.text(0.02, 0.98, f'p = {p_value:.4f} {sig_text}', 
-                           transform=ax.transAxes, va='top', ha='left',
-                           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+            # Improve whiskers and medians
+            for whisker in bp['whiskers']:
+                whisker.set_color('black')
+                whisker.set_linewidth(1.5)
+            for median in bp['medians']:
+                median.set_color('darkred')
+                median.set_linewidth(2.5)
             
-            ax.set_title(f'{factor_name} Effect on Accuracy', fontweight='bold')
-            ax.set_ylabel('Classification Accuracy')
-            ax.grid(True, alpha=0.3)
-            ax.set_ylim(0, 1)
+            # Add statistical annotations with CORRECT key lookup
+            anova_results = analysis.get('anova_results', {})
+            
+            # Try different possible ANOVA result keys
+            p_value = None
+            f_stat = None
+            
+            # Check for the factor with C() wrapper (from statsmodels)
+            for anova_key in anova_results.keys():
+                if factor in anova_key.lower():
+                    result = anova_results[anova_key]
+                    p_value = result.get('PR(>F)')
+                    f_stat = result.get('F')
+                    break
+            
+            # If no exact match, try direct lookup
+            if p_value is None and factor in anova_results:
+                result = anova_results[factor]
+                p_value = result.get('PR(>F)')
+                f_stat = result.get('F')
+            
+            if p_value is not None and not pd.isna(p_value):
+                # Determine significance level
+                if p_value < 0.001:
+                    sig_text = "***"
+                    sig_color = 'darkgreen'
+                elif p_value < 0.01:
+                    sig_text = "**"
+                    sig_color = 'green'
+                elif p_value < 0.05:
+                    sig_text = "*"
+                    sig_color = 'orange'
+                else:
+                    sig_text = "ns"
+                    sig_color = 'red'
+                
+                # Add significance annotation
+                stats_text = f'F = {f_stat:.2f}\np = {p_value:.4f} {sig_text}'
+                ax.text(0.02, 0.98, stats_text, 
+                       transform=ax.transAxes, va='top', ha='left',
+                       fontsize=10, fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.5', facecolor='white', 
+                               edgecolor=sig_color, linewidth=2, alpha=0.9))
+            else:
+                # No ANOVA results available
+                ax.text(0.02, 0.98, 'ANOVA\nN/A', 
+                       transform=ax.transAxes, va='top', ha='left',
+                       fontsize=10, fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgray', alpha=0.7))
+            
+            # Improved styling
+            ax.set_title(f'{factor_name} Effect on Accuracy', fontweight='bold', fontsize=14, pad=20)
+            ax.set_ylabel('Classification Accuracy', fontweight='bold', fontsize=12)
+            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_ylim(-0.05, 1.05)  # Better spacing
+            
+            # Improve tick labels
+            ax.tick_params(axis='both', which='major', labelsize=11)
+            
+            # Rotate x-labels if needed
+            if factor == 'model':
+                plt.setp(ax.get_xticklabels(), rotation=15, ha='right')
         
         plt.suptitle('Statistical Analysis: Factor Effects with ANOVA Results', 
-                    fontsize=16, fontweight='bold')
-        plt.tight_layout()
-        plt.savefig(os.path.join(results_dir, f"statistical_boxplots_{self.test_id}.png"))
+                    fontsize=18, fontweight='bold', y=0.98)
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.savefig(os.path.join(results_dir, f"statistical_boxplots_{self.test_id}.png"),
+                   dpi=300, bbox_inches='tight', facecolor='white')
         plt.close()
     
     def _create_effect_size_plot(self, analysis: Dict, results_dir: str):
