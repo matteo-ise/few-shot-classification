@@ -1,37 +1,27 @@
-# Wissenschaftliches Few-Shot Learning Experiment
+# Empirische Evaluation von In-Context Learning Strategien für IT-Support-Ticket-Klassifikation
 
-## 🎯 Projektübersicht
+**DHBW Projektarbeit - 4. Semester Wirtschaftsinformatik**
 
-Dieses Projekt implementiert ein **wissenschaftlich rigoroses Few-Shot Learning Experiment** für die DHBW Projektarbeit. Es vergleicht verschiedene Large Language Models (LLMs) bei der Klassifikation von IT-Support-Tickets unter verschiedenen experimentellen Bedingungen.
+## Forschungsgegenstand
 
-### Wissenschaftliche Standards
-- ✅ **Faktorielles 2×4×2 Design** (LLM × Few-Shot-Count × Prompt-Type)
-- ✅ **Statistische Power** mit n≥25 pro Bedingung
-- ✅ **Vollständige Few-Shot Progression** (0, 1, 3, 5 Beispiele)
-- ✅ **Baseline-Vergleich** mit Zero-shot als Kontrolle
-- ✅ **Reproduzierbarkeit** durch Seeding und vollständige Dokumentation
+Diese experimentelle Studie evaluiert systematisch die Effektivität von In-Context Learning Strategien bei der automatisierten Klassifikation von IT-Support-Tickets unter Verwendung lokaler Large Language Models. Das Forschungsdesign folgt dem CRISP-DM Vorgehensmodell und implementiert ein faktorielles 2×4×2 Experimentaldesign zur quantitativen Analyse verschiedener Few-Shot Learning Konfigurationen.
 
-## 📊 Experimentelles Design
+### Wissenschaftliche Fragestellungen
 
-### Faktoren
-- **LLM-Modelle**: Llama3.1:8b, Mistral:7b
-- **Few-Shot Bedingungen**: 0-shot (Baseline), 1-shot, 3-shot, 5-shot
-- **Prompt-Typen**: Strukturiert, Unstrukturiert
+Die Untersuchung adressiert drei zentrale Forschungsfragen:
 
-### Abhängige Variablen
-- Klassifikationsaccuracy
-- F1-Score (gewichtet und makro)
-- Precision & Recall
-- Matthews Correlation Coefficient (MCC)
-- Balanced Accuracy
+1. **Quantifizierung des Few-Shot Learning Effekts**: Systematische Evaluation der Klassifikationsgenauigkeit in Abhängigkeit der Anzahl bereitgestellter Beispiele (0-shot bis 5-shot)
+2. **Modell-spezifische Performance-Analyse**: Vergleichende Bewertung der lokalen LLMs Llama 3.1 8B und Mistral 7B hinsichtlich ihrer Few-Shot Lernfähigkeiten
+3. **Prompt Engineering Optimierung**: Empirische Untersuchung strukturierter versus unstrukturierter Prompt-Formate auf die Klassifikationsleistung
 
 ### Kategorien
+
 - **Hardware**: Geräteprobleme (Laptop, Drucker, Monitor)
 - **Software**: Programmprobleme (Excel, VPN, Email)
 - **Network**: Netzwerkprobleme (Internet, WLAN, Server)
 - **Security**: Sicherheitsprobleme (Phishing, Passwort, Malware)
 
-## 🔧 Installation und Setup
+## Installation und Setup
 
 ### Voraussetzungen
 ```bash
@@ -66,7 +56,7 @@ ollama pull mistral:7b
 ollama serve
 ```
 
-## 🚀 Experiment ausführen
+## Experiment ausführen
 
 ### Schnellstart
 ```bash
@@ -76,46 +66,40 @@ python src/few_shot_experiment.py
 ### Wissenschaftlicher Workflow
 Das Experiment durchläuft folgende Phasen:
 
-1. **📋 Experimentelle Validierung**
+1. **Experimentelle Validierung**
    - Überprüfung der Konfiguration
    - Validierung des Experimental Design
    - Power-Analyse
 
-2. **📊 Power-Analyse**
+2. **Power-Analyse**
    - Berechnung erforderlicher Stichprobengrößen
    - Schätzung der Experimentdauer
    - Validierung der statistischen Power
 
-3. **🎯 Experimentelle Parameter**
+3. **Experimentelle Parameter**
    - Anzeige aller Faktoren und Level
    - Bestätigung durch Benutzer
    - Final setup validation
 
-4. **🚀 Experiment-Ausführung**
-   - Fortschrittsverfolgung mit Progress Bars
-   - Fehlerbehandlung und Retry-Mechanismen
-   - Zwischenspeicherung alle 50 Klassifikationen
-
-5. **📊 Wissenschaftliche Analyse**
+4. **Wissenschaftliche Analyse**
    - Deskriptive Statistiken mit Konfidenzintervallen
    - Mehrfaktorielle ANOVA
    - Post-hoc Tests (Tukey HSD)
    - Effektgrößenberechnung (Cohen's f)
    - Assumption Testing
 
-6. **📈 Visualisierungen**
+5. **Visualisierungen**
    - Few-Shot Progression Plots
    - Model Comparison Charts
    - Statistical Heatmaps
    - Effect Size Forest Plots
    - Confusion Matrices
 
-7. **📝 Wissenschaftlicher Bericht**
+6. **Wissenschaftlicher Bericht**
    - Markdown Report mit allen Ergebnissen
-   - LaTeX-ready Tables
    - Reproduzierbarkeits-Informationen
 
-## 📁 Projektstruktur
+## Projektstruktur
 
 ```
 few-shot-classification-experiment/
@@ -136,7 +120,7 @@ few-shot-classification-experiment/
 └── README.md                   # Diese Datei
 ```
 
-## ⚙️ Konfiguration
+## Konfiguration
 
 Die Datei `config.yaml` enthält alle experimentellen Parameter:
 
@@ -157,22 +141,22 @@ statistics:
   bonferroni_correction: true      # Multiple Comparisons
 ```
 
-## 📊 Beispiel-Ergebnisse
+## Beispiel-Ergebnisse
 
 ### Statistische Ausgabe
 ```
-🎯 EXPERIMENT ZUSAMMENFASSUNG
+EXPERIMENT ZUSAMMENFASSUNG
 Overall Accuracy: 0.847
 F1-Score (Weighted): 0.845
 Matthews Correlation: 0.798
 Balanced Accuracy: 0.849
 
-📊 ANOVA Ergebnisse:
+ANOVA Ergebnisse:
    model: p = 0.0123 *
    few_shot_count: p = 0.0001 ***
    prompt_type: p = 0.2341 ns
 
-📏 Effektgrößen (Cohen's f):
+Effektgrößen (Cohen's f):
    model: 0.142 (small)
    few_shot_count: 0.287 (medium)
    prompt_type: 0.089 (negligible)
@@ -185,7 +169,7 @@ Balanced Accuracy: 0.849
 - **Wissenschaftlicher Bericht**: `report_TIMESTAMP.md`
 - **Experiment-Log**: `experiment_TIMESTAMP.log`
 
-## 🔬 Wissenschaftliche Validität
+## Wissenschaftliche Validität
 
 ### Statistische Rigorosität
 - **Faktorielles Design**: Vollständige 2×4×2 Faktorenstruktur
@@ -206,22 +190,7 @@ Balanced Accuracy: 0.849
 - **Progress Monitoring**: Real-time Fortschrittsverfolgung
 - **Intermediate Saves**: Datensicherheit durch Zwischenspeicherung
 
-## 📚 Für DHBW Projektarbeit
-
-### Verwendung in der Arbeit
-1. **Methodenkapitel**: Experimentelles Design aus config.yaml
-2. **Ergebniskapitel**: Analyse aus JSON und Markdown Report
-3. **Diskussion**: Effektgrößen und praktische Signifikanz
-4. **Anhang**: Vollständige Rohdaten und Reproduzierbarkeit
-
-### LaTeX Integration
-```latex
-% Beispiel-Tabelle (wird automatisch generiert)
-\input{tables/anova_results.tex}
-\input{tables/descriptive_statistics.tex}
-```
-
-## 🔧 Erweiterte Nutzung
+## Erweiterte Nutzung
 
 ### Custom Analysis
 ```python
@@ -243,29 +212,15 @@ models:
 few_shot_counts: [0, 2, 4, 6, 8]  # Andere Progression
 ```
 
-## 🤝 Beitragen
+## Wissenschaftliche Integrität
 
-### Issues
-- Experimentelle Verbesserungen
-- Statistische Methoden
-- Visualisierungsoptionen
+Diese Arbeit entspricht den Standards guter wissenschaftlicher Praxis der DHBW. Alle verwendeten Quellen sind ordnungsgemäß zitiert. Die experimentellen Daten und Analysemethoden sind vollständig dokumentiert und reproduzierbar.
 
-### Pull Requests
-1. Fork des Repositories
-2. Feature Branch erstellen
-3. Tests durchführen
-4. Pull Request einreichen
+### Limitationen
 
-## 📄 Lizenz
+Die Studie unterliegt folgenden methodischen Einschränkungen:
 
-Dieses Projekt ist für akademische Zwecke der DHBW entwickelt.
-
-## 📞 Support
-
-Bei Fragen zum wissenschaftlichen Design oder der Implementierung:
-- GitHub Issues für technische Probleme
-- DHBW Betreuer für akademische Fragen
-
----
-
-**Hinweis**: Dieses Experiment wurde nach höchsten wissenschaftlichen Standards entwickelt und ist für akademische Publikationen geeignet. 
+- **Synthetische Daten**: Verwendung algorithmisch generierter anstelle authentischer Support-Tickets
+- **Beschränkte Modellauswahl**: Fokus auf lokale 7B-8B Parameter Modelle
+- **Domänen-Spezifität**: Beschränkung auf IT-Support-Kontext
+- **Temporäre Validität**: Snapshot-Evaluation ohne longitudinale Komponente
