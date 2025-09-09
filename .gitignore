@@ -23,3 +23,4 @@ data/
 
 # Sonstiges
 .DS_Store
+.vscode/
